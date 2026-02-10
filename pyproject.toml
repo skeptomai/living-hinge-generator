@@ -1,0 +1,26 @@
+[project]
+name = "kerf-generator"
+version = "0.1.0"
+description = "Python library for generating kerf cutting patterns (living hinges) for laser cutting"
+readme = "README.md"
+authors = [
+    { name = "Christopher Brown", email = "cjbrown102@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "ezdxf>=1.3.0",
+    "matplotlib>=3.8.0",
+    "numpy>=1.26.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "black>=24.0.0",
+    "mypy>=1.8.0",
+    "ruff>=0.2.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"

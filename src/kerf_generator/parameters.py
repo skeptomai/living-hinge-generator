@@ -1,0 +1,223 @@
+"""
+Parameter definitions and validation for kerf cutting patterns.
+"""
+
+from dataclasses import dataclass, field
+from typing import Optional, Literal
+from .geometry import (
+    validate_pattern_parameters,
+    calculate_bend_radius,
+    calculate_max_bend_angle,
+    estimate_number_of_cuts,
+)
+
+
+PatternDirection = Literal["horizontal", "vertical"]
+
+
+@dataclass
+class KerfParameters:
+    """
+    Parameters defining a kerf cutting pattern.
+
+    All dimensions are in millimeters.
+
+    Attributes:
+        material_width: Width of material sheet (mm)
+        material_height: Height of material sheet (mm)
+        material_thickness: Thickness of material (mm)
+        kerf_width: Width of laser cut, depends on laser power and material (mm)
+        cut_spacing: Distance between parallel cuts (mm)
+        cut_length: Length of each individual cut (mm)
+        cut_offset: Distance from edges where cuts should not be placed (mm)
+        pattern_direction: Orientation of cuts - 'horizontal' or 'vertical'
+
+    Computed Properties:
+        bend_radius: Estimated bend radius for this pattern (mm)
+        max_bend_angle: Maximum safe bend angle (degrees)
+        num_cuts: Estimated number of cuts in the pattern
+    """
+
+    # Required parameters
+    material_width: float
+    material_height: float
+    material_thickness: float
+    kerf_width: float
+    cut_spacing: float
+    cut_length: float
+    cut_offset: float
+    pattern_direction: PatternDirection = "horizontal"
+
+    # Optional metadata
+    material_name: Optional[str] = None
+    notes: Optional[str] = None
+
+    def __post_init__(self):
+        """Validate parameters after initialization."""
+        self.validate()
+
+    def validate(self) -> tuple[bool, list[str]]:
+        """
+        Validate parameters and return validation status.
+
+        Returns:
+            Tuple of (is_valid, warnings)
+            is_valid: True if parameters are acceptable
+            warnings: List of warning/error messages
+
+        Raises:
+            ValueError: If parameters are invalid
+        """
+        is_valid, warnings = validate_pattern_parameters(
+            material_width=self.material_width,
+            material_height=self.material_height,
+            material_thickness=self.material_thickness,
+            kerf_width=self.kerf_width,
+            cut_spacing=self.cut_spacing,
+            cut_length=self.cut_length,
+            cut_offset=self.cut_offset,
+        )
+
+        # Check pattern direction
+        if self.pattern_direction not in ("horizontal", "vertical"):
+            warnings.append(
+                f"Pattern direction must be 'horizontal' or 'vertical', got '{self.pattern_direction}'"
+            )
+            is_valid = False
+
+        if not is_valid:
+            error_msg = "Invalid parameters:\n" + "\n".join(f"  - {w}" for w in warnings)
+            raise ValueError(error_msg)
+
+        # Print warnings even if valid
+        if warnings:
+            import warnings as warn_module
+            for warning in warnings:
+                warn_module.warn(warning, UserWarning)
+
+        return is_valid, warnings
+
+    @property
+    def bend_radius(self) -> float:
+        """Calculate the approximate bend radius for this pattern."""
+        return calculate_bend_radius(
+            material_thickness=self.material_thickness,
+            cut_spacing=self.cut_spacing,
+            kerf_width=self.kerf_width,
+            cut_length=self.cut_length,
+        )
+
+    @property
+    def max_bend_angle(self) -> float:
+        """Calculate the maximum practical bend angle in degrees."""
+        return calculate_max_bend_angle(
+            material_thickness=self.material_thickness,
+            cut_spacing=self.cut_spacing,
+            cut_length=self.cut_length,
+        )
+
+    @property
+    def num_cuts(self) -> int:
+        """Estimate the number of cuts in this pattern."""
+        # Determine which dimension to use based on pattern direction
+        if self.pattern_direction == "horizontal":
+            # Horizontal cuts span across the width, multiple cuts down the height
+            dimension = self.material_height
+        else:
+            # Vertical cuts span down the height, multiple cuts across the width
+            dimension = self.material_width
+
+        return estimate_number_of_cuts(
+            material_dimension=dimension,
+            cut_spacing=self.cut_spacing,
+            cut_offset=self.cut_offset,
+        )
+
+    def summary(self) -> str:
+        """
+        Generate a human-readable summary of the parameters.
+
+        Returns:
+            Multi-line string describing the pattern
+        """
+        lines = [
+            "Kerf Pattern Parameters",
+            "=" * 50,
+            f"Material: {self.material_width} × {self.material_height} × {self.material_thickness} mm",
+        ]
+
+        if self.material_name:
+            lines.append(f"Material Type: {self.material_name}")
+
+        lines.extend([
+            f"Kerf Width: {self.kerf_width} mm",
+            f"Cut Spacing: {self.cut_spacing} mm",
+            f"Cut Length: {self.cut_length} mm",
+            f"Cut Offset: {self.cut_offset} mm",
+            f"Pattern Direction: {self.pattern_direction}",
+            "",
+            "Calculated Properties:",
+            f"  Estimated Cuts: {self.num_cuts}",
+            f"  Bend Radius: {self.bend_radius:.2f} mm",
+            f"  Max Bend Angle: {self.max_bend_angle:.1f}°",
+        ])
+
+        if self.notes:
+            lines.extend(["", f"Notes: {self.notes}"])
+
+        return "\n".join(lines)
+
+    def __str__(self) -> str:
+        """String representation of parameters."""
+        return (
+            f"KerfParameters({self.material_width}×{self.material_height}×{self.material_thickness}mm, "
+            f"spacing={self.cut_spacing}mm, {self.pattern_direction})"
+        )
+
+    def __repr__(self) -> str:
+        """Detailed representation of parameters."""
+        return (
+            f"KerfParameters("
+            f"material_width={self.material_width}, "
+            f"material_height={self.material_height}, "
+            f"material_thickness={self.material_thickness}, "
+            f"kerf_width={self.kerf_width}, "
+            f"cut_spacing={self.cut_spacing}, "
+            f"cut_length={self.cut_length}, "
+            f"cut_offset={self.cut_offset}, "
+            f"pattern_direction='{self.pattern_direction}'"
+            f")"
+        )
+
+
+@dataclass
+class LineSegment:
+    """
+    Represents a single line segment (cut) in the pattern.
+
+    Attributes:
+        x1, y1: Start point coordinates (mm)
+        x2, y2: End point coordinates (mm)
+        layer: Optional layer name for DXF export
+    """
+
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+    layer: str = "cuts"
+
+    @property
+    def length(self) -> float:
+        """Calculate the length of this line segment."""
+        import math
+        return math.sqrt((self.x2 - self.x1) ** 2 + (self.y2 - self.y1) ** 2)
+
+    @property
+    def midpoint(self) -> tuple[float, float]:
+        """Calculate the midpoint of this line segment."""
+        return ((self.x1 + self.x2) / 2, (self.y1 + self.y2) / 2)
+
+    def __str__(self) -> str:
+        """String representation of line segment."""
+        return f"Line[({self.x1:.2f}, {self.y1:.2f}) -> ({self.x2:.2f}, {self.y2:.2f})]"
