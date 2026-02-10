@@ -3,6 +3,19 @@
 ## Project Purpose
 Python library for generating kerf cutting patterns (living hinges) for laser cutting. Outputs DXF files for Fusion 360/Lightburn and preview images for verification.
 
+## Important Working Conventions
+
+### ⚠️ NEVER Give Time Estimates
+**DO NOT provide time estimates for implementation tasks** (e.g., "this will take 2-3 hours" or "30-45 minutes").
+
+**Reasons:**
+- AI time perception is meaningless
+- Over-estimates AI capability, under-estimates human effort
+- Provides no useful information to the user
+- Creates false expectations
+
+**Instead:** Just describe what needs to be done and start doing it, or ask if the user wants to proceed.
+
 ## Key Project Details
 
 ### Technology Stack
