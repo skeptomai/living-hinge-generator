@@ -24,11 +24,11 @@ def main():
 
     params = KerfParameters(
         material_width=150,        # Box width
-        material_height=50,        # Hinge length
+        material_height=80,        # Hinge height
         material_thickness=3,      # 3mm plywood
         kerf_width=0.2,           # Standard CO2 laser
-        cut_spacing=5.5,          # Slightly wider for smooth bending
-        cut_length=130,           # Most of the width
+        cut_spacing=6,            # Safe spacing for smooth bending
+        cut_length=60,            # Length of each cut (leaves margins)
         cut_offset=10,            # Edge margin
         pattern_direction='horizontal',
         material_name="3mm Birch Plywood",
