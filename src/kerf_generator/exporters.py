@@ -146,16 +146,19 @@ def export_image(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Create figure with appropriate size
-    # Size based on material dimensions with margin
-    margin = max(params.material_width, params.material_height) * 0.1
-    fig_width = (params.material_width + 2 * margin) / 25.4  # Convert mm to inches
-    fig_height = (params.material_height + 2 * margin) / 25.4
+    # Size based on material dimensions with larger margins for legend space
+    side_margin = max(params.material_width, params.material_height) * 0.18  # Even wider side margins
+    top_margin = max(params.material_width, params.material_height) * 0.40  # More space for legend
+    bottom_margin = max(params.material_width, params.material_height) * 0.10
+
+    fig_width = (params.material_width + 2 * side_margin) / 25.4 * 1.5  # Make 50% wider
+    fig_height = (params.material_height + top_margin + bottom_margin) / 25.4 * 1.2  # 20% taller
 
     fig, ax = plt.subplots(figsize=(fig_width, fig_height))
 
     # Set up coordinate system (origin at bottom-left)
-    ax.set_xlim(-margin, params.material_width + margin)
-    ax.set_ylim(-margin, params.material_height + margin)
+    ax.set_xlim(-side_margin, params.material_width + side_margin)
+    ax.set_ylim(-bottom_margin, params.material_height + top_margin)
     ax.set_aspect("equal")
 
     # Draw material outline
@@ -195,14 +198,15 @@ def export_image(
             f"Bend radius: {params.bend_radius:.1f} mm, Max angle: {params.max_bend_angle:.1f}°"
         )
 
+        # Place text annotation above the pattern in the top margin area
+        # Moved left 10% and up 10% from original position
         ax.text(
-            0.02,
-            0.98,
+            params.material_width * 0.10,
+            params.material_height + top_margin * 0.70,
             param_text,
-            transform=ax.transAxes,
-            fontsize=8,
+            fontsize=9,
             verticalalignment="top",
-            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
+            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.9),
             family="monospace",
         )
 
@@ -211,12 +215,23 @@ def export_image(
     ax.set_ylabel("Height (mm)")
     ax.set_title(f"Kerf Pattern Preview - {params.pattern_direction.capitalize()} Cuts", pad=20)
 
-    # Legend
-    handles, labels = ax.get_legend_handles_labels()
-    if handles:
-        # Remove duplicate labels
-        by_label = dict(zip(labels, handles))
-        ax.legend(by_label.values(), by_label.keys(), loc="upper right")
+    # Legend disabled - only showing parameter stats box
+    # handles, labels = ax.get_legend_handles_labels()
+    # if handles:
+    #     # Remove duplicate labels
+    #     by_label = dict(zip(labels, handles))
+    #     ax.legend(
+    #         by_label.values(),
+    #         by_label.keys(),
+    #         loc="upper right",
+    #         bbox_to_anchor=(0.85, 1.20),
+    #         framealpha=0.95,
+    #         ncol=1,
+    #         fontsize=10,
+    #         labelspacing=1.2,
+    #         borderpad=1.0,
+    #         handlelength=2.5,
+    #     )
 
     # Tight layout
     plt.tight_layout()

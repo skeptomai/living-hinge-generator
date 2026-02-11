@@ -47,6 +47,10 @@ def cli():
 @click.option('--direction', '-d', type=click.Choice(['horizontal', 'vertical', 'h', 'v']),
               default='horizontal',
               help='Cut direction: horizontal (h) or vertical (v)')
+@click.option('--pattern-type', '-p',
+              type=click.Choice(['living_hinge', 'diamond', 'oval', 'lh', 'd', 'o']),
+              default='living_hinge',
+              help='Pattern type: living_hinge (lh), diamond (d), or oval (o)')
 @click.option('--material-name', '-m', type=str,
               help='Optional material name for documentation')
 @click.option('--dxf', type=click.Path(),
@@ -62,7 +66,7 @@ def cli():
 @click.option('--show-info/--no-show-info', default=True,
               help='Show pattern information before generating')
 def generate(width, height, thickness, kerf, spacing, length, offset,
-             direction, material_name, dxf, png, svg, output_dir, name, show_info):
+             direction, pattern_type, material_name, dxf, png, svg, output_dir, name, show_info):
     """
     Generate a living hinge pattern.
 
@@ -76,6 +80,17 @@ def generate(width, height, thickness, kerf, spacing, length, offset,
     elif direction in ('v', 'vertical'):
         direction = 'vertical'
 
+    # Normalize pattern type
+    pattern_type_map = {
+        'lh': 'living_hinge',
+        'd': 'diamond',
+        'o': 'oval',
+        'living_hinge': 'living_hinge',
+        'diamond': 'diamond',
+        'oval': 'oval'
+    }
+    pattern_type = pattern_type_map.get(pattern_type, 'living_hinge')
+
     # Create parameters
     try:
         params = KerfParameters(
@@ -87,6 +102,7 @@ def generate(width, height, thickness, kerf, spacing, length, offset,
             cut_length=length,
             cut_offset=offset,
             pattern_direction=direction,
+            pattern_type=pattern_type,
             material_name=material_name,
         )
     except ValueError as e:
@@ -158,15 +174,25 @@ def interactive():
     length = click.prompt("  Length of each cut (mm)", type=float)
     offset = click.prompt("  Edge offset (mm)", type=float, default=10)
 
-    direction = click.prompt(
-        "  Cut direction",
-        type=click.Choice(['horizontal', 'vertical', 'h', 'v']),
-        default='horizontal'
+    pattern_type = click.prompt(
+        "  Pattern type",
+        type=click.Choice(['living_hinge', 'diamond', 'oval']),
+        default='living_hinge'
     )
-    if direction in ('h', 'horizontal'):
-        direction = 'horizontal'
+
+    # Only prompt for direction if living_hinge
+    if pattern_type == 'living_hinge':
+        direction = click.prompt(
+            "  Cut direction",
+            type=click.Choice(['horizontal', 'vertical', 'h', 'v']),
+            default='horizontal'
+        )
+        if direction in ('h', 'horizontal'):
+            direction = 'horizontal'
+        else:
+            direction = 'vertical'
     else:
-        direction = 'vertical'
+        direction = 'horizontal'  # Default (ignored for diamond/oval)
 
     click.echo()
     material_name = click.prompt("Material name (optional, press Enter to skip)",
@@ -183,6 +209,7 @@ def interactive():
             cut_length=length,
             cut_offset=offset,
             pattern_direction=direction,
+            pattern_type=pattern_type,
             material_name=material_name if material_name else None,
         )
     except ValueError as e:

@@ -9,10 +9,12 @@ from .geometry import (
     calculate_bend_radius,
     calculate_max_bend_angle,
     estimate_number_of_cuts,
+    estimate_shape_count,
 )
 
 
 PatternDirection = Literal["horizontal", "vertical"]
+PatternType = Literal["living_hinge", "diamond", "oval"]
 
 
 @dataclass
@@ -30,7 +32,8 @@ class KerfParameters:
         cut_spacing: Distance between parallel cuts (mm)
         cut_length: Length of each individual cut (mm)
         cut_offset: Distance from edges where cuts should not be placed (mm)
-        pattern_direction: Orientation of cuts - 'horizontal' or 'vertical'
+        pattern_direction: Orientation of cuts - 'horizontal' or 'vertical' (used for living_hinge only)
+        pattern_type: Type of pattern - 'living_hinge', 'diamond', or 'oval'
 
     Computed Properties:
         bend_radius: Estimated bend radius for this pattern (mm)
@@ -47,6 +50,7 @@ class KerfParameters:
     cut_length: float
     cut_offset: float
     pattern_direction: PatternDirection = "horizontal"
+    pattern_type: PatternType = "living_hinge"
 
     # Optional metadata
     material_name: Optional[str] = None
@@ -78,12 +82,25 @@ class KerfParameters:
             cut_offset=self.cut_offset,
         )
 
+        # Check pattern type
+        if self.pattern_type not in ("living_hinge", "diamond", "oval"):
+            warnings.append(
+                f"Pattern type must be 'living_hinge', 'diamond', or 'oval', got '{self.pattern_type}'"
+            )
+            is_valid = False
+
         # Check pattern direction
         if self.pattern_direction not in ("horizontal", "vertical"):
             warnings.append(
                 f"Pattern direction must be 'horizontal' or 'vertical', got '{self.pattern_direction}'"
             )
             is_valid = False
+
+        # Warn if pattern_direction is non-default for diamond/oval (it's ignored)
+        if self.pattern_type in ("diamond", "oval") and self.pattern_direction != "horizontal":
+            warnings.append(
+                f"Pattern direction is ignored for '{self.pattern_type}' patterns (2D layouts have no direction)"
+            )
 
         if not is_valid:
             error_msg = "Invalid parameters:\n" + "\n".join(f"  - {w}" for w in warnings)
@@ -118,20 +135,35 @@ class KerfParameters:
 
     @property
     def num_cuts(self) -> int:
-        """Estimate the number of cuts in this pattern."""
-        # Determine which dimension to use based on pattern direction
-        if self.pattern_direction == "horizontal":
-            # Horizontal cuts span across the width, multiple cuts down the height
-            dimension = self.material_height
-        else:
-            # Vertical cuts span down the height, multiple cuts across the width
-            dimension = self.material_width
+        """
+        Estimate the number of cuts/shapes in this pattern.
 
-        return estimate_number_of_cuts(
-            material_dimension=dimension,
-            cut_spacing=self.cut_spacing,
-            cut_offset=self.cut_offset,
-        )
+        For living_hinge: Returns number of cut lines
+        For diamond/oval: Returns number of shapes (not individual line segments)
+        """
+        if self.pattern_type == "living_hinge":
+            # Determine which dimension to use based on pattern direction
+            if self.pattern_direction == "horizontal":
+                # Horizontal cuts span across the width, multiple cuts down the height
+                dimension = self.material_height
+            else:
+                # Vertical cuts span down the height, multiple cuts across the width
+                dimension = self.material_width
+
+            return estimate_number_of_cuts(
+                material_dimension=dimension,
+                cut_spacing=self.cut_spacing,
+                cut_offset=self.cut_offset,
+            )
+        else:
+            # For diamond/oval patterns, count shapes in 2D grid
+            return estimate_shape_count(
+                material_width=self.material_width,
+                material_height=self.material_height,
+                shape_size=self.cut_length,
+                spacing=self.cut_spacing,
+                offset=self.cut_offset,
+            )
 
     def summary(self) -> str:
         """
@@ -154,10 +186,17 @@ class KerfParameters:
             f"Cut Spacing: {self.cut_spacing} mm",
             f"Cut Length: {self.cut_length} mm",
             f"Cut Offset: {self.cut_offset} mm",
-            f"Pattern Direction: {self.pattern_direction}",
+            f"Pattern Type: {self.pattern_type}",
+        ])
+
+        # Only show pattern direction for living_hinge
+        if self.pattern_type == "living_hinge":
+            lines.append(f"Pattern Direction: {self.pattern_direction}")
+
+        lines.extend([
             "",
             "Calculated Properties:",
-            f"  Estimated Cuts: {self.num_cuts}",
+            f"  Estimated {'Shapes' if self.pattern_type in ('diamond', 'oval') else 'Cuts'}: {self.num_cuts}",
             f"  Bend Radius: {self.bend_radius:.2f} mm",
             f"  Max Bend Angle: {self.max_bend_angle:.1f}°",
         ])

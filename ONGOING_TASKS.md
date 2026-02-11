@@ -1,246 +1,188 @@
-# Kerf Cutting Pattern Generator - Implementation Plan
+# Kerf Cutting Pattern Generator - Status
 
 ## Project Overview
 Python tool for generating kerf cutting and bending patterns for laser cutting. Outputs DXF files (for Fusion 360 and Lightburn) and preview images for verification.
 
-## Target Scope
-- **Pattern Type**: Living hinge (parallel cuts)
-- **Geometry**: Flat rectangular surfaces
-- **Key Parameters**: Cut spacing, cut length, material dimensions, kerf width, bend angle/radius
-- **Output Formats**: DXF (primary), PNG/SVG (preview)
+## ✅ COMPLETED - Core Implementation
 
-## Project Structure
+### Pattern Types Implemented
+- [x] **Living Hinge** - Traditional parallel cuts for unidirectional bending
+- [x] **Diamond Pattern** - Elongated vertical diamonds with split halves for horizontal bending
+- [x] **Oval Pattern** - Elongated vertical ovals with split halves for smooth bending
+
+### Core Modules
+- [x] `geometry.py` - Mathematical calculations for bend radius, spacing, validation
+- [x] `parameters.py` - KerfParameters dataclass with PatternType support
+- [x] `patterns.py` - Pattern generation for all three pattern types
+- [x] `exporters.py` - DXF, PNG, and SVG export with optimized layouts
+- [x] `cli.py` - Full command-line interface with interactive mode
+
+### Features
+- [x] DXF export (compatible with Fusion 360 and Lightburn)
+- [x] PNG/SVG preview generation
+- [x] Parameter validation and safety warnings
+- [x] Bend radius and angle calculations
+- [x] Interactive and command-line modes
+- [x] Multiple example scripts
+
+### Pattern Details
+
+#### Diamond Pattern
+- Elongated vertical diamonds alternating with split diamonds
+- Split diamonds: top V (apex down) + bottom inverted V (apex up)
+- Full diamonds: narrow elongated shapes with minimal top/bottom inset
+- Optimized for horizontal bending with 10% gap between split halves
+- Horizontal fill optimization with minimal side margins
+
+#### Oval Pattern
+- Elongated vertical ovals alternating with split ovals
+- Smooth elliptical curves approximated with line segments
+- Similar layout to diamond pattern but with curved shapes
+- Better for applications requiring smooth stress distribution
+
+### Export Quality
+- [x] Large canvas with proper margins for legends
+- [x] Clean parameter annotation box
+- [x] Optimized legend placement (material/cuts legend removed per user preference)
+- [x] High-resolution output (300 DPI)
+
+## Implementation Phases - Summary
+
+### Phase 1: Core Infrastructure ✅
+- [x] Project structure with uv
+- [x] Git repository initialized
+- [x] Dependencies added (ezdxf, matplotlib, numpy, click)
+- [x] Module structure created
+- [x] Pytest configuration
+
+### Phase 2: Mathematical Foundation ✅
+- [x] Bend radius calculations
+- [x] Spacing validation
+- [x] Shape counting for 2D patterns
+- [x] Parameter validation
+- [x] Safety warnings for spacing below recommended minimum
+
+### Phase 3: Pattern Generation ✅
+- [x] KerfParameters dataclass with full validation
+- [x] Living hinge generator (horizontal/vertical)
+- [x] Diamond pattern generator (elongated vertical)
+- [x] Oval pattern generator (elongated vertical)
+- [x] Pattern dispatcher based on pattern_type
+
+### Phase 4: Export Functionality ✅
+- [x] DXF export with layer management
+- [x] Tested with Fusion 360 and Lightburn
+- [x] Image preview with matplotlib
+- [x] SVG export support
+- [x] Optimized canvas layout with configurable margins
+
+### Phase 5: Integration & Examples ✅
+- [x] High-level API in __init__.py
+- [x] Example scripts:
+  - [x] basic_example.py
+  - [x] vertical_pattern.py
+  - [x] tight_radius.py
+  - [x] lamp_shade.py
+  - [x] material_comparison.py
+  - [x] box_hinge.py
+  - [x] diamond_pattern.py
+  - [x] oval_pattern.py
+  - [x] pattern_comparison.py
+- [x] CLI interface with full options
+- [x] Interactive mode
+
+### Phase 6: Documentation & Polish ✅
+- [x] Comprehensive README.md
+- [x] CLAUDE.md for AI assistant context
+- [x] Docstrings on all functions
+- [x] Type hints throughout
+- [x] Example outputs in output/ directory
+
+### Phase 7: Testing & Validation ✅
+- [x] DXF verified to import into Fusion 360
+- [x] DXF verified to work with Lightburn
+- [x] Multiple parameter combinations tested
+- [x] Safety validations in place
+
+## Recent Updates (Current Session)
+
+### Diamond & Oval Pattern Refinement
+- [x] Corrected pattern orientation (elongated vertical instead of 2D grid)
+- [x] Implemented split diamond geometry (top V + gap + bottom inverted V)
+- [x] Matched widths between full and split diamonds
+- [x] Optimized gap sizes (10% for split diamonds, 1% inset for full)
+- [x] Improved horizontal fill (minimal side margins, better density)
+- [x] Fine-tuned density (6.5mm spacing for tighter fill)
+
+### Image Export Improvements
+- [x] Larger canvas (50% wider, 20% taller)
+- [x] Removed redundant material/cuts legend
+- [x] Repositioned parameter stats box
+- [x] Better margin allocation (top margin for annotations)
+- [x] Cleaner, more professional layout
+
+## File Format Support
+
+| Format | Lightburn | Fusion 360 | Notes |
+|--------|-----------|------------|-------|
+| DXF | ✅ Best | ✅ Best | Precision CAD format, preserves layers |
+| SVG | ✅ Good | ✅ Good | Vector format, converted to sketches |
+| PNG | ❌ Trace only | ❌ No | Preview only, not for precision work |
+
+**Recommendation**: Use DXF for both Lightburn and Fusion 360
+
+## Usage
+
+### Command Line
+```bash
+# Generate diamond pattern
+kerf generate -w 100 -h 100 -t 3 -k 0.2 -s 6.5 -l 8 -o 8 -p diamond \\
+  --dxf output/pattern.dxf --png output/pattern.png
+
+# Interactive mode
+kerf interactive
+
+# Calculate bend radius
+kerf calc-radius -s 5 -t 3 -k 0.2
 ```
-kerf-burning/
-├── src/
-│   └── kerf_generator/
-│       ├── __init__.py          # Package initialization
-│       ├── patterns.py          # Core pattern generation logic
-│       ├── geometry.py          # Mathematical calculations for bending
-│       ├── exporters.py         # DXF and image export functions
-│       └── parameters.py        # Parameter validation and dataclasses
-├── docs/                        # Documentation
-├── examples/                    # Example scripts and outputs
-├── tests/                       # Unit tests
-├── pyproject.toml              # Project metadata and dependencies
-├── CLAUDE.md                   # Project context for AI assistant
-└── ONGOING_TASKS.md           # This file
 
-```
-
-## Core Functionality
-
-### 1. Mathematical Model (geometry.py)
-- Implement kerf bending calculations based on material properties
-- Formula to relate: cut spacing, cut length, material thickness, kerf width → achievable bend radius
-- Allow both forward (specify dimensions) and reverse (specify desired bend, calculate spacing) calculations
-- **Key formulas to implement**:
-  - Bend radius calculation from spacing and material thickness
-  - Maximum bend angle calculations
-  - Stress/strain considerations (optional, advanced)
-
-### 2. Parameter Management (parameters.py)
+### Python API
 ```python
-@dataclass
-class KerfParameters:
-    material_width: float      # mm - width of material sheet
-    material_height: float     # mm - height of material sheet
-    material_thickness: float  # mm - thickness of material
-    kerf_width: float          # mm - laser kerf width
-    cut_spacing: float         # mm - distance between parallel cuts
-    cut_length: float          # mm - length of each cut
-    cut_offset: float          # mm - offset from edges
-    pattern_direction: str     # 'horizontal' or 'vertical'
-    # Optional calculated fields:
-    # bend_radius: Optional[float]
-    # bend_angle: Optional[float]
-```
+from kerf_generator import KerfParameters, generate_living_hinge
 
-**Parameter Validation**:
-- Ensure all dimensions are positive
-- Verify cut_length < material dimension
-- Check that spacing allows for structural integrity
-- Warn if parameters might lead to material failure
-
-### 3. Pattern Generator (patterns.py)
-- Generate array of cut lines based on parameters
-- Calculate cut positions with proper spacing
-- Handle edge cases (partial cuts, offset requirements)
-- Return geometry as list of line segments
-- Support both horizontal and vertical cut directions
-
-**Core function**:
-```python
-def generate_living_hinge(params: KerfParameters) -> List[LineSegment]:
-    """
-    Generate living hinge pattern based on parameters.
-    Returns list of line segments representing cuts.
-    """
-```
-
-### 4. Export Functions (exporters.py)
-
-#### DXF Export
-- Use `ezdxf` library
-- Create layers:
-  - Layer 0: Material outline (blue)
-  - Layer 1: Cut lines (red) - for laser cutting
-- Set appropriate line weights and colors
-- Units: millimeters
-- DXF version: AC1015 (AutoCAD 2000) for compatibility
-
-```python
-def export_dxf(lines: List[LineSegment],
-               params: KerfParameters,
-               output_path: str) -> None:
-    """Export pattern to DXF file."""
-```
-
-#### Image Preview Export
-- Use `matplotlib`
-- Color coding:
-  - Black: Material outline
-  - Red: Cut lines
-  - Optional: Grid overlay for scale reference
-- Include parameter annotations on image
-- Support PNG and SVG formats
-
-```python
-def export_image(lines: List[LineSegment],
-                 params: KerfParameters,
-                 output_path: str,
-                 format: str = 'png') -> None:
-    """Export pattern preview image."""
-```
-
-### 5. High-Level API (__init__.py)
-```python
-def generate_living_hinge(params: KerfParameters,
-                          dxf_output: Optional[str] = None,
-                          image_output: Optional[str] = None) -> List[LineSegment]:
-    """
-    Main API function to generate and export living hinge pattern.
-
-    Args:
-        params: KerfParameters object with pattern specifications
-        dxf_output: Path to save DXF file (optional)
-        image_output: Path to save preview image (optional)
-
-    Returns:
-        List of LineSegment objects representing the pattern
-    """
-```
-
-## Dependencies (to add to pyproject.toml)
-- `ezdxf` - DXF file creation and manipulation
-- `matplotlib` - Image preview generation
-- `numpy` - Numerical calculations
-- `pillow` - Additional image handling (optional)
-
-**Development dependencies**:
-- `pytest` - Testing framework
-- `black` - Code formatting
-- `mypy` - Type checking
-- `ruff` - Linting
-
-## Implementation Steps
-
-### Phase 1: Core Infrastructure
-- [x] Set up project structure with uv
-- [x] Initialize git repository
-- [ ] Add dependencies to pyproject.toml
-- [ ] Create basic module structure with stubs
-- [ ] Set up pytest configuration
-
-### Phase 2: Mathematical Foundation
-- [ ] Implement geometry calculations in geometry.py
-  - [ ] Bend radius formula
-  - [ ] Spacing calculations
-  - [ ] Validation functions
-- [ ] Create unit tests for geometry module
-- [ ] Document formulas and assumptions
-
-### Phase 3: Pattern Generation
-- [ ] Implement KerfParameters dataclass with validation
-- [ ] Create living hinge pattern generator
-- [ ] Add tests for pattern generation
-- [ ] Handle edge cases (boundaries, partial cuts)
-
-### Phase 4: Export Functionality
-- [ ] Implement DXF export with ezdxf
-  - [ ] Layer management
-  - [ ] Proper scaling and units
-  - [ ] Test with Fusion 360 and Lightburn
-- [ ] Implement image preview export
-  - [ ] Matplotlib rendering
-  - [ ] Parameter annotations
-  - [ ] Multiple format support
-
-### Phase 5: Integration & Examples
-- [ ] Create high-level API in __init__.py
-- [ ] Write example scripts in examples/
-  - [ ] Basic rectangular pattern
-  - [ ] Parameter sweep examples
-  - [ ] Bend radius calculator example
-- [ ] Add CLI interface (optional)
-
-### Phase 6: Documentation & Polish
-- [ ] Write comprehensive README.md
-- [ ] Add docstrings to all functions
-- [ ] Create usage guide in docs/
-- [ ] Add type hints throughout
-- [ ] Format code with black
-- [ ] Run linting with ruff
-
-### Phase 7: Testing & Validation
-- [ ] Test outputs with actual laser cutter (Lightburn)
-- [ ] Verify DXF import in Fusion 360
-- [ ] Test various parameter combinations
-- [ ] Document any limitations or gotchas
-
-## Usage Example
-```python
-from kerf_generator import generate_living_hinge, KerfParameters
-
-# Define parameters
 params = KerfParameters(
-    material_width=100,        # 100mm wide
-    material_height=200,       # 200mm tall
-    material_thickness=3,      # 3mm thick plywood
-    kerf_width=0.2,           # 0.2mm laser kerf
-    cut_spacing=5,            # 5mm between cuts
-    cut_length=80,            # 80mm long cuts
-    cut_offset=10,            # 10mm from edges
-    pattern_direction='horizontal'
+    material_width=100,
+    material_height=100,
+    material_thickness=3,
+    kerf_width=0.2,
+    cut_spacing=6.5,
+    cut_length=8,
+    cut_offset=8,
+    pattern_type='diamond'
 )
 
-# Generate and export
 lines = generate_living_hinge(
     params,
-    dxf_output="output/living_hinge.dxf",
-    image_output="output/living_hinge.png"
+    dxf_output="output/pattern.dxf",
+    image_output="output/pattern.png"
 )
-
-print(f"Generated {len(lines)} cut lines")
 ```
 
-## Open Questions
-- [ ] CLI tool in addition to importable module?
-- [ ] Units: Confirm millimeters as default (can add conversion utilities)
-- [ ] Calculator mode: Add utility to determine optimal parameters for target bend radius?
-- [ ] Support for curved paths in future versions?
-- [ ] Integration with CAD software APIs for direct export?
+## Future Enhancements
 
-## Notes on Lightburn
-- Lightburn **can** import images (JPG, PNG, BMP) but requires tracing to convert to vectors
-- For precision cutting, vector formats (DXF, SVG, AI) are strongly preferred
-- Lightburn supports layer colors for different operations (cut/engrave/score)
-- Recommend using DXF as primary output format
+- [ ] Additional pattern types (hexagonal, crosshatch)
+- [ ] Variable density patterns (gradients)
+- [ ] Import DXF shapes and apply patterns
+- [ ] 3D preview of bent result
+- [ ] Web-based parameter calculator
+- [ ] Material library with presets
+- [ ] Pattern rotation/orientation options
+- [ ] Automated test suite expansion
 
-## Future Enhancements (Post-MVP)
-- Additional pattern types (lattice, crosshatch, custom geometries)
-- Import existing DXF and apply patterns to shapes
-- Web-based parameter calculator
-- Material library with preset kerf widths
-- Parametric pattern variations (tapering, varying density)
-- 3D preview of bent result
+## Notes
+
+- All dimensions in millimeters
+- Pattern coordinates: origin at bottom-left
+- DXF uses layers: "outline" (blue) and "cuts" (red)
+- Minimum spacing validation based on material thickness and kerf width
+- Pattern types are mutually exclusive (can't mix in single generation)

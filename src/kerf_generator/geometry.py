@@ -346,3 +346,43 @@ def estimate_number_of_cuts(
     num_cuts = int(available_space / cut_spacing) + 1
 
     return max(0, num_cuts)
+
+
+def estimate_shape_count(
+    material_width: float,
+    material_height: float,
+    shape_size: float,
+    spacing: float,
+    offset: float,
+) -> int:
+    """
+    Estimate how many diamond/oval shapes fit in the material using column-based layout.
+
+    For elongated vertical patterns, this calculates the number of columns that fit
+    horizontally. Each column contains either one full shape or one split shape (which
+    counts as one shape).
+
+    Args:
+        material_width: Width of material in mm
+        material_height: Height of material in mm (not used for column count, but kept for compatibility)
+        shape_size: Width of each shape in mm
+        spacing: Horizontal spacing between columns in mm
+        offset: Offset from material edges in mm
+
+    Returns:
+        Number of shapes (columns) that will fit
+    """
+    if material_width <= 0 or shape_size <= 0 or spacing <= 0:
+        return 0
+
+    # Available space after accounting for offsets
+    available_width = material_width - (2 * offset)
+
+    if available_width <= 0:
+        return 0
+
+    # Calculate number of columns (each column is one shape)
+    # Shapes are spaced horizontally by 'spacing'
+    num_columns = int(available_width / spacing) + 1
+
+    return max(0, num_columns)
