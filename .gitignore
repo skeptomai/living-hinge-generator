@@ -39,5 +39,8 @@ output/
 *.png
 *.svg
 
+# Exception: Keep documentation images
+!docs/images/*.png
+
 # Logs
 *.log
