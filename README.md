@@ -22,9 +22,9 @@ Kerf cutting creates flexible joints in rigid materials by making strategic cuts
 ### Diamond Pattern (Single Row)
 Elongated vertical diamonds alternating with split diamonds. Provides omnidirectional flexibility and better stress distribution than straight cuts.
 
-![Diamond Pattern - Single Row](docs/images/diamond_single_row.png)
+<img src="docs/images/diamond_single_row.png" alt="Diamond Pattern - Single Row" width="50%">
 
-*100×200mm material with single row of diamond patterns*
+*100×140mm material with single row of diamond patterns*
 
 ## Vertical Row Stacking
 
@@ -33,14 +33,14 @@ For tall materials, patterns can be automatically stacked into multiple horizont
 ### Automatic Stacking
 Materials taller than 150mm are automatically divided into multiple rows:
 
-![Tall Material - Auto Stacked](docs/images/tall_diamond_auto.png)
+<img src="docs/images/tall_diamond_auto.png" alt="Tall Material - Auto Stacked" width="50%">
 
 *320mm tall material automatically stacked into 2 rows (~160mm each)*
 
 ### Manual Override
 You can force row stacking even on shorter materials for tighter hinge zones:
 
-![Short Material - Manual Override](docs/images/short_material_2rows_override.png)
+<img src="docs/images/short_material_2rows_override.png" alt="Short Material - Manual Override" width="50%">
 
 *120mm material with manual override to force 2 rows (~60mm each)*
 
