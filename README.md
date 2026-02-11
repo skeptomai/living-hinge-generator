@@ -1,6 +1,6 @@
 # Living Hinge Generator
 
-Python library for generating kerf cutting patterns (living hinges) for laser cutting.
+Python command line tool and library for generating kerf cutting patterns (living hinges) for laser cutting.
 
 ## Overview
 
@@ -16,6 +16,49 @@ Kerf cutting creates flexible joints in rigid materials by making strategic cuts
 - **Image Previews**: Visual verification of patterns before cutting
 - **Parametric Control**: Adjust spacing, cut length, material dimensions, and more
 - **CLI and Python API**: Use from command line or integrate into your workflow
+
+## Usage
+
+### Python API
+
+```python
+from kerf_generator import generate_living_hinge, KerfParameters
+
+# Diamond pattern with automatic row stacking
+params = KerfParameters(
+    material_width=100,         # mm
+    material_height=200,        # mm
+    material_thickness=3,       # mm
+    kerf_width=0.2,            # mm
+    cut_spacing=6.5,           # mm
+    cut_length=12,             # mm (diamond width)
+    cut_offset=8,              # mm
+    pattern_type='diamond',     # 'straight', 'diamond', or 'oval'
+    num_vertical_rows=None      # None = auto-calculate, or specify 1, 2, 3...
+)
+
+# Generate and export
+generate_living_hinge(
+    params,
+    dxf_output="pattern.dxf",
+    image_output="pattern.png"
+)
+```
+
+### Command Line
+
+```bash
+# Diamond pattern with auto-stacking
+kerf generate -w 100 -h 320 -t 3 -k 0.2 -s 6.5 -l 12 -o 8 \
+  -p diamond --dxf output.dxf --png output.png
+
+# Force 2 rows on shorter material
+kerf generate -w 100 -h 120 -t 3 -k 0.2 -s 6.5 -l 12 -o 8 \
+  -p diamond --num-rows 2 --dxf output.dxf
+
+# Interactive mode
+kerf interactive
+```
 
 ## Pattern Types
 
@@ -59,49 +102,6 @@ cd kerf-burning
 
 # Install dependencies with uv
 uv sync
-```
-
-## Quick Start
-
-### Python API
-
-```python
-from kerf_generator import generate_living_hinge, KerfParameters
-
-# Diamond pattern with automatic row stacking
-params = KerfParameters(
-    material_width=100,         # mm
-    material_height=200,        # mm
-    material_thickness=3,       # mm
-    kerf_width=0.2,            # mm
-    cut_spacing=6.5,           # mm
-    cut_length=12,             # mm (diamond width)
-    cut_offset=8,              # mm
-    pattern_type='diamond',     # 'straight', 'diamond', or 'oval'
-    num_vertical_rows=None      # None = auto-calculate, or specify 1, 2, 3...
-)
-
-# Generate and export
-generate_living_hinge(
-    params,
-    dxf_output="pattern.dxf",
-    image_output="pattern.png"
-)
-```
-
-### Command Line
-
-```bash
-# Diamond pattern with auto-stacking
-kerf generate -w 100 -h 320 -t 3 -k 0.2 -s 6.5 -l 12 -o 8 \
-  -p diamond --dxf output.dxf --png output.png
-
-# Force 2 rows on shorter material
-kerf generate -w 100 -h 120 -t 3 -k 0.2 -s 6.5 -l 12 -o 8 \
-  -p diamond --num-rows 2 --dxf output.dxf
-
-# Interactive mode
-kerf interactive
 ```
 
 ## Project Status
