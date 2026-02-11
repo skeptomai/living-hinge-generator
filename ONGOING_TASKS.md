@@ -6,9 +6,11 @@ Python tool for generating kerf cutting and bending patterns for laser cutting. 
 ## ✅ COMPLETED - Core Implementation
 
 ### Pattern Types Implemented
-- [x] **Living Hinge** - Traditional parallel cuts for unidirectional bending
-- [x] **Diamond Pattern** - Elongated vertical diamonds with split halves for horizontal bending
-- [x] **Oval Pattern** - Elongated vertical ovals with split halves for smooth bending
+All patterns create living hinges (flexible joints) - the difference is the cut shape:
+
+- [x] **Straight Cuts** - Traditional parallel cuts for unidirectional bending
+- [x] **Diamond Cuts** - Elongated vertical diamonds with split halves for horizontal bending
+- [x] **Oval Cuts** - Elongated vertical ovals with split halves for smooth bending
 
 ### Core Modules
 - [x] `geometry.py` - Mathematical calculations for bend radius, spacing, validation
@@ -64,7 +66,7 @@ Python tool for generating kerf cutting and bending patterns for laser cutting. 
 
 ### Phase 3: Pattern Generation ✅
 - [x] KerfParameters dataclass with full validation
-- [x] Living hinge generator (horizontal/vertical)
+- [x] Straight cut generator (horizontal/vertical)
 - [x] Diamond pattern generator (elongated vertical)
 - [x] Oval pattern generator (elongated vertical)
 - [x] Pattern dispatcher based on pattern_type
@@ -135,8 +137,12 @@ Python tool for generating kerf cutting and bending patterns for laser cutting. 
 
 ### Command Line
 ```bash
-# Generate diamond pattern
+# Generate diamond pattern (living hinge with diamond-shaped cuts)
 kerf generate -w 100 -h 100 -t 3 -k 0.2 -s 6.5 -l 8 -o 8 -p diamond \\
+  --dxf output/pattern.dxf --png output/pattern.png
+
+# Generate straight cuts (traditional living hinge)
+kerf generate -w 100 -h 100 -t 3 -k 0.2 -s 6.5 -l 8 -o 8 -p straight \\
   --dxf output/pattern.dxf --png output/pattern.png
 
 # Interactive mode

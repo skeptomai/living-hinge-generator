@@ -14,7 +14,7 @@ from .geometry import (
 
 
 PatternDirection = Literal["horizontal", "vertical"]
-PatternType = Literal["living_hinge", "diamond", "oval"]
+PatternType = Literal["straight", "diamond", "oval"]
 
 
 @dataclass
@@ -32,8 +32,8 @@ class KerfParameters:
         cut_spacing: Distance between parallel cuts (mm)
         cut_length: Length of each individual cut (mm)
         cut_offset: Distance from edges where cuts should not be placed (mm)
-        pattern_direction: Orientation of cuts - 'horizontal' or 'vertical' (used for living_hinge only)
-        pattern_type: Type of pattern - 'living_hinge', 'diamond', or 'oval'
+        pattern_direction: Orientation of cuts - 'horizontal' or 'vertical' (used for straight cuts only)
+        pattern_type: Type of pattern - 'straight', 'diamond', or 'oval'
 
     Computed Properties:
         bend_radius: Estimated bend radius for this pattern (mm)
@@ -50,7 +50,7 @@ class KerfParameters:
     cut_length: float
     cut_offset: float
     pattern_direction: PatternDirection = "horizontal"
-    pattern_type: PatternType = "living_hinge"
+    pattern_type: PatternType = "straight"
 
     # Optional metadata
     material_name: Optional[str] = None
@@ -83,9 +83,9 @@ class KerfParameters:
         )
 
         # Check pattern type
-        if self.pattern_type not in ("living_hinge", "diamond", "oval"):
+        if self.pattern_type not in ("straight", "diamond", "oval"):
             warnings.append(
-                f"Pattern type must be 'living_hinge', 'diamond', or 'oval', got '{self.pattern_type}'"
+                f"Pattern type must be 'straight', 'diamond', or 'oval', got '{self.pattern_type}'"
             )
             is_valid = False
 
@@ -138,10 +138,10 @@ class KerfParameters:
         """
         Estimate the number of cuts/shapes in this pattern.
 
-        For living_hinge: Returns number of cut lines
+        For straight cuts: Returns number of cut lines
         For diamond/oval: Returns number of shapes (not individual line segments)
         """
-        if self.pattern_type == "living_hinge":
+        if self.pattern_type == "straight":
             # Determine which dimension to use based on pattern direction
             if self.pattern_direction == "horizontal":
                 # Horizontal cuts span across the width, multiple cuts down the height
@@ -189,8 +189,8 @@ class KerfParameters:
             f"Pattern Type: {self.pattern_type}",
         ])
 
-        # Only show pattern direction for living_hinge
-        if self.pattern_type == "living_hinge":
+        # Only show pattern direction for straight cuts
+        if self.pattern_type == "straight":
             lines.append(f"Pattern Direction: {self.pattern_direction}")
 
         lines.extend([

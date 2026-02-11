@@ -48,9 +48,9 @@ def cli():
               default='horizontal',
               help='Cut direction: horizontal (h) or vertical (v)')
 @click.option('--pattern-type', '-p',
-              type=click.Choice(['living_hinge', 'diamond', 'oval', 'lh', 'd', 'o']),
-              default='living_hinge',
-              help='Pattern type: living_hinge (lh), diamond (d), or oval (o)')
+              type=click.Choice(['straight', 'diamond', 'oval', 's', 'd', 'o']),
+              default='straight',
+              help='Pattern type: straight (s), diamond (d), or oval (o)')
 @click.option('--material-name', '-m', type=str,
               help='Optional material name for documentation')
 @click.option('--dxf', type=click.Path(),
@@ -82,14 +82,14 @@ def generate(width, height, thickness, kerf, spacing, length, offset,
 
     # Normalize pattern type
     pattern_type_map = {
-        'lh': 'living_hinge',
+        's': 'straight',
         'd': 'diamond',
         'o': 'oval',
-        'living_hinge': 'living_hinge',
+        'straight': 'straight',
         'diamond': 'diamond',
         'oval': 'oval'
     }
-    pattern_type = pattern_type_map.get(pattern_type, 'living_hinge')
+    pattern_type = pattern_type_map.get(pattern_type, 'straight')
 
     # Create parameters
     try:
@@ -176,12 +176,12 @@ def interactive():
 
     pattern_type = click.prompt(
         "  Pattern type",
-        type=click.Choice(['living_hinge', 'diamond', 'oval']),
-        default='living_hinge'
+        type=click.Choice(['straight', 'diamond', 'oval']),
+        default='straight'
     )
 
-    # Only prompt for direction if living_hinge
-    if pattern_type == 'living_hinge':
+    # Only prompt for direction if straight cuts
+    if pattern_type == 'straight':
         direction = click.prompt(
             "  Cut direction",
             type=click.Choice(['horizontal', 'vertical', 'h', 'v']),

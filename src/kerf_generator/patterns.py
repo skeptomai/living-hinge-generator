@@ -38,8 +38,8 @@ def generate_living_hinge(params: KerfParameters) -> List[LineSegment]:
         >>> len(lines)
         39
     """
-    if params.pattern_type == "living_hinge":
-        return _generate_living_hinge_pattern(params)
+    if params.pattern_type == "straight":
+        return _generate_straight_cut_pattern(params)
     elif params.pattern_type == "diamond":
         return _generate_diamond_pattern(params)
     elif params.pattern_type == "oval":
@@ -48,9 +48,9 @@ def generate_living_hinge(params: KerfParameters) -> List[LineSegment]:
         raise ValueError(f"Unknown pattern_type: {params.pattern_type}")
 
 
-def _generate_living_hinge_pattern(params: KerfParameters) -> List[LineSegment]:
+def _generate_straight_cut_pattern(params: KerfParameters) -> List[LineSegment]:
     """
-    Generate a living hinge pattern with parallel cuts.
+    Generate a straight cut pattern with parallel cuts.
 
     Creates an array of parallel cuts oriented according to pattern_direction.
     - Horizontal: cuts run horizontally (left-right), spaced vertically
