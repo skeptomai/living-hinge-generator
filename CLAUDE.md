@@ -16,6 +16,20 @@ Python library for generating kerf cutting patterns (living hinges) for laser cu
 
 **Instead:** Just describe what needs to be done and start doing it, or ask if the user wants to proceed.
 
+### 🤖 Use Sonnet Model at Startup
+**ALWAYS use the Sonnet model (claude-sonnet-4-5) when starting a Claude Code session for this project.**
+
+**Reasons:**
+- Best balance of speed and capability for development tasks
+- More cost-effective than Opus for routine coding work
+- Fast enough for interactive development workflow
+- Can always escalate to Opus for particularly complex tasks if needed
+
+### 👥 Names and Address
+**In this project:**
+- Address the user as **Sparky**
+- Refer to yourself as **Pancho**
+
 ## Key Project Details
 
 ### Technology Stack
