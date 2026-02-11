@@ -26,6 +26,7 @@ All patterns create living hinges (flexible joints) - the difference is the cut 
 - [x] Bend radius and angle calculations
 - [x] Interactive and command-line modes
 - [x] Multiple example scripts
+- [x] Vertical row stacking for diamond/oval patterns (auto-calculate or manual override)
 
 ### Pattern Details
 
@@ -41,6 +42,18 @@ All patterns create living hinges (flexible joints) - the difference is the cut 
 - Smooth elliptical curves approximated with line segments
 - Similar layout to diamond pattern but with curved shapes
 - Better for applications requiring smooth stress distribution
+
+#### Vertical Row Stacking (Diamond/Oval)
+- For tall materials, patterns automatically stack into multiple horizontal bands
+- Auto-calculation: Materials > 150mm divided into ~150mm rows
+- Manual override: `num_vertical_rows` parameter to force specific row count
+- Benefits:
+  - Better flexibility control (multiple hinge zones)
+  - Improved structural integrity
+  - Enables compound curves
+  - Better stress distribution
+- Example: 320mm material → 2 rows of ~160mm each
+- Each row has complete pattern sequence with 2mm gap between rows
 
 ### Export Quality
 - [x] Large canvas with proper margins for legends
@@ -90,6 +103,7 @@ All patterns create living hinges (flexible joints) - the difference is the cut 
   - [x] diamond_pattern.py
   - [x] oval_pattern.py
   - [x] pattern_comparison.py
+  - [x] tall_material.py (demonstrates vertical row stacking)
 - [x] CLI interface with full options
 - [x] Interactive mode
 

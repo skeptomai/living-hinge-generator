@@ -51,6 +51,8 @@ def cli():
               type=click.Choice(['straight', 'diamond', 'oval', 's', 'd', 'o']),
               default='straight',
               help='Pattern type: straight (s), diamond (d), or oval (o)')
+@click.option('--num-rows', '-r', type=int,
+              help='Number of vertical rows for diamond/oval patterns (default: auto-calculate)')
 @click.option('--material-name', '-m', type=str,
               help='Optional material name for documentation')
 @click.option('--dxf', type=click.Path(),
@@ -66,7 +68,7 @@ def cli():
 @click.option('--show-info/--no-show-info', default=True,
               help='Show pattern information before generating')
 def generate(width, height, thickness, kerf, spacing, length, offset,
-             direction, pattern_type, material_name, dxf, png, svg, output_dir, name, show_info):
+             direction, pattern_type, num_rows, material_name, dxf, png, svg, output_dir, name, show_info):
     """
     Generate a living hinge pattern.
 
@@ -103,6 +105,7 @@ def generate(width, height, thickness, kerf, spacing, length, offset,
             cut_offset=offset,
             pattern_direction=direction,
             pattern_type=pattern_type,
+            num_vertical_rows=num_rows,
             material_name=material_name,
         )
     except ValueError as e:
@@ -191,8 +194,18 @@ def interactive():
             direction = 'horizontal'
         else:
             direction = 'vertical'
+        num_rows = None  # Not used for straight cuts
     else:
         direction = 'horizontal'  # Default (ignored for diamond/oval)
+        # Ask about vertical rows for diamond/oval
+        use_auto_rows = click.confirm(
+            "  Auto-calculate number of vertical rows?",
+            default=True
+        )
+        if use_auto_rows:
+            num_rows = None
+        else:
+            num_rows = click.prompt("  Number of vertical rows", type=int, default=1)
 
     click.echo()
     material_name = click.prompt("Material name (optional, press Enter to skip)",
@@ -210,6 +223,7 @@ def interactive():
             cut_offset=offset,
             pattern_direction=direction,
             pattern_type=pattern_type,
+            num_vertical_rows=num_rows,
             material_name=material_name if material_name else None,
         )
     except ValueError as e:

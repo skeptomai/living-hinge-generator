@@ -386,3 +386,43 @@ def estimate_shape_count(
     num_columns = int(available_width / spacing) + 1
 
     return max(0, num_columns)
+
+
+def calculate_num_rows(
+    material_height: float,
+    height_threshold: float = 150.0,
+) -> int:
+    """
+    Calculate the number of vertical rows for diamond/oval patterns.
+
+    For tall materials, stacking multiple rows of patterns vertically provides better
+    flexibility control and structural integrity than single very elongated shapes.
+
+    Args:
+        material_height: Height of material in mm
+        height_threshold: Maximum height per row in mm (default: 150mm)
+
+    Returns:
+        Number of rows to use (minimum 1)
+
+    Notes:
+        - Materials ≤ threshold: 1 row (single pattern spanning full height)
+        - Materials > threshold: Divided into ~threshold-sized rows
+        - Example: 300mm material with 150mm threshold → 2 rows of ~150mm each
+    """
+    if material_height <= 0:
+        return 1
+
+    if material_height <= height_threshold:
+        return 1
+
+    # Calculate how many rows are needed to keep each row at or below threshold
+    num_rows = int(material_height / height_threshold)
+
+    # If the division leaves a very small remainder, keep the same number of rows
+    # Otherwise add one more row
+    remainder = material_height % height_threshold
+    if remainder > height_threshold * 0.3:  # If remainder is >30% of threshold
+        num_rows += 1
+
+    return max(1, num_rows)

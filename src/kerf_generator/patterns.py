@@ -175,14 +175,15 @@ def _generate_diamond_pattern(params: KerfParameters) -> List[LineSegment]:
     - Even columns: Full elongated diamonds (tall, narrow, nearly full height)
     - Odd columns: Split diamonds (top V + gap + bottom inverted V)
 
-    This pattern allows the material to bend horizontally while providing
-    better stress distribution than straight cuts.
+    For tall materials, patterns can be stacked vertically in multiple rows
+    for better flexibility control and structural integrity.
 
     Args:
         params: KerfParameters defining the pattern
             - cut_length: Width of diamonds
             - cut_spacing: Horizontal spacing between columns
-            - material_height: Determines diamond height (uses ~80% of available height)
+            - material_height: Determines diamond height (uses ~80% of available height per row)
+            - num_vertical_rows: Number of rows to stack (None = auto-calculate)
 
     Returns:
         List of LineSegment objects representing the diamond cuts
@@ -197,55 +198,68 @@ def _generate_diamond_pattern(params: KerfParameters) -> List[LineSegment]:
     # For horizontal fill, use minimal horizontal offset (just a small margin)
     horizontal_margin = diamond_width * 0.15  # Small margin on sides
     available_width = params.material_width - (2 * horizontal_margin)
-    available_height = params.material_height - (2 * offset)
+    total_available_height = params.material_height - (2 * offset)
 
-    if available_width <= 0 or available_height <= 0:
+    if available_width <= 0 or total_available_height <= 0:
         return lines
 
-    # Calculate diamond height
-    # Full diamonds: almost no inset from top/bottom (~1%), so they occupy 98% of height
-    # Make them much narrower
-    full_diamond_height = available_height * 0.98
-    full_diamond_inset = available_height * 0.01
+    # Determine number of vertical rows
+    num_rows = params.effective_num_rows
 
-    # Split diamonds: extend to actual material edges (use full material height)
-    # Very narrow gap in middle (10%) for tight pattern
-    split_gap_ratio = 0.10  # 10% gap
-    split_total_height = params.material_height
-    split_gap = split_total_height * split_gap_ratio
-    split_v_height = (split_total_height - split_gap) / 2
+    # Calculate row configuration
+    row_gap = 2.0  # Small gap between rows (mm)
+    total_gap_height = (num_rows - 1) * row_gap if num_rows > 1 else 0
+    row_height = (total_available_height - total_gap_height) / num_rows
 
     # Calculate number of columns
     num_cols = int(available_width / spacing) + 1
 
-    for col in range(num_cols):
-        col_x = horizontal_margin + (col * spacing)
+    # Generate pattern for each row
+    for row_idx in range(num_rows):
+        # Calculate this row's vertical position
+        row_y_start = offset + (row_idx * (row_height + row_gap))
 
-        # Stop if we exceed material bounds (with small margin)
-        if col_x + diamond_width > params.material_width - horizontal_margin:
-            break
+        # Calculate diamond heights for this row
+        # Full diamonds: almost no inset from top/bottom of row (~1%)
+        full_diamond_height = row_height * 0.98
+        full_diamond_inset = row_height * 0.01
 
-        # Use same narrow width for both types
-        narrow_width = diamond_width * 0.35  # 35% width for both
+        # Split diamonds: extend to actual row edges
+        # Very narrow gap in middle (10%) for tight pattern
+        split_gap_ratio = 0.10  # 10% gap
+        split_total_height = row_height
+        split_gap = split_total_height * split_gap_ratio
+        split_v_height = (split_total_height - split_gap) / 2
 
-        if col % 2 == 0:
-            # Even column: Split diamond extending to actual material edges (start with these)
-            lines.extend(_create_split_diamond_with_gap(
-                col_x + (diamond_width - narrow_width) / 2,
-                0,
-                narrow_width,
-                split_total_height,
-                split_v_height,
-                split_gap
-            ))
-        else:
-            # Odd column: Full elongated diamond (very narrow, minimal inset from top/bottom)
-            lines.extend(_create_full_elongated_diamond(
-                col_x + (diamond_width - narrow_width) / 2,
-                offset + full_diamond_inset,
-                narrow_width,
-                full_diamond_height
-            ))
+        # Generate columns for this row
+        for col in range(num_cols):
+            col_x = horizontal_margin + (col * spacing)
+
+            # Stop if we exceed material bounds (with small margin)
+            if col_x + diamond_width > params.material_width - horizontal_margin:
+                break
+
+            # Use same narrow width for both types
+            narrow_width = diamond_width * 0.35  # 35% width for both
+
+            if col % 2 == 0:
+                # Even column: Split diamond extending to actual row edges
+                lines.extend(_create_split_diamond_with_gap(
+                    col_x + (diamond_width - narrow_width) / 2,
+                    row_y_start,
+                    narrow_width,
+                    split_total_height,
+                    split_v_height,
+                    split_gap
+                ))
+            else:
+                # Odd column: Full elongated diamond (very narrow, minimal inset)
+                lines.extend(_create_full_elongated_diamond(
+                    col_x + (diamond_width - narrow_width) / 2,
+                    row_y_start + full_diamond_inset,
+                    narrow_width,
+                    full_diamond_height
+                ))
 
     return lines
 
@@ -375,6 +389,9 @@ def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
     - Even columns: Full elongated ovals (tall, narrow, nearly full height)
     - Odd columns: Split ovals (top arc + gap + bottom arc)
 
+    For tall materials, patterns can be stacked vertically in multiple rows
+    for better flexibility control and structural integrity.
+
     This pattern allows the material to bend horizontally while providing
     smooth curves that distribute stress better than straight cuts.
 
@@ -382,7 +399,8 @@ def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
         params: KerfParameters defining the pattern
             - cut_length: Width of ovals
             - cut_spacing: Horizontal spacing between columns
-            - material_height: Determines oval height (uses ~80% of available height)
+            - material_height: Determines oval height (uses ~80% of available height per row)
+            - num_vertical_rows: Number of rows to stack (None = auto-calculate)
 
     Returns:
         List of LineSegment objects representing the oval cuts
@@ -395,40 +413,54 @@ def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
 
     # Available space
     available_width = params.material_width - (2 * offset)
-    available_height = params.material_height - (2 * offset)
+    total_available_height = params.material_height - (2 * offset)
 
-    if available_width <= 0 or available_height <= 0:
+    if available_width <= 0 or total_available_height <= 0:
         return lines
 
-    # Calculate oval height (use ~80% of available height for full ovals)
-    oval_height = available_height * 0.8
+    # Determine number of vertical rows
+    num_rows = params.effective_num_rows
 
-    # Gap for split ovals (space between top arc and bottom arc)
-    split_gap = oval_height * 0.3
+    # Calculate row configuration
+    row_gap = 2.0  # Small gap between rows (mm)
+    total_gap_height = (num_rows - 1) * row_gap if num_rows > 1 else 0
+    row_height = (total_available_height - total_gap_height) / num_rows
 
     # Calculate number of columns
     num_cols = int(available_width / spacing) + 1
 
-    for col in range(num_cols):
-        col_x = offset + (col * spacing)
+    # Generate pattern for each row
+    for row_idx in range(num_rows):
+        # Calculate this row's vertical position
+        row_y_start = offset + (row_idx * (row_height + row_gap))
 
-        # Stop if we exceed material bounds
-        if col_x + oval_width > params.material_width - offset:
-            break
+        # Calculate oval height for this row (use ~80% of row height)
+        oval_height = row_height * 0.8
 
-        # Center x position for oval
-        center_x = col_x + oval_width / 2
+        # Gap for split ovals (space between top arc and bottom arc)
+        split_gap = oval_height * 0.3
 
-        if col % 2 == 0:
-            # Even column: Full elongated oval
-            lines.extend(_create_full_elongated_oval(
-                center_x, offset, oval_width, oval_height
-            ))
-        else:
-            # Odd column: Split oval (top arc + bottom arc)
-            lines.extend(_create_split_oval(
-                center_x, offset, oval_width, oval_height, split_gap
-            ))
+        # Generate columns for this row
+        for col in range(num_cols):
+            col_x = offset + (col * spacing)
+
+            # Stop if we exceed material bounds
+            if col_x + oval_width > params.material_width - offset:
+                break
+
+            # Center x position for oval
+            center_x = col_x + oval_width / 2
+
+            if col % 2 == 0:
+                # Even column: Full elongated oval
+                lines.extend(_create_full_elongated_oval(
+                    center_x, row_y_start, oval_width, oval_height
+                ))
+            else:
+                # Odd column: Split oval (top arc + bottom arc)
+                lines.extend(_create_split_oval(
+                    center_x, row_y_start, oval_width, oval_height, split_gap
+                ))
 
     return lines
 
