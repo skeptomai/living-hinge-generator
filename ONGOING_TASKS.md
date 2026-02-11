@@ -1,7 +1,18 @@
-# Kerf Cutting Pattern Generator - Status
+# Living Hinge Generator - Status
 
 ## Project Overview
-Python tool for generating kerf cutting and bending patterns for laser cutting. Outputs DXF files (for Fusion 360 and Lightburn) and preview images for verification.
+Python tool for generating kerf cutting and bending patterns (living hinges) for laser cutting. Outputs DXF files (for Fusion 360 and Lightburn) and preview images for verification.
+
+**Status**: ✅ Production Ready
+**Repository**: https://github.com/skeptomai/living-hinge-generator
+**License**: Apache 2.0
+
+### Quick Facts
+- **Three pattern types**: Straight cuts, diamond shapes, oval shapes
+- **Vertical row stacking**: Auto-calculate or manual override for tall materials
+- **Export formats**: DXF (recommended), SVG, PNG preview
+- **CLI + Python API**: Full programmatic and command-line access
+- **Well-documented**: Comprehensive README with visual examples
 
 ## ✅ COMPLETED - Core Implementation
 
@@ -120,9 +131,25 @@ All patterns create living hinges (flexible joints) - the difference is the cut 
 - [x] Multiple parameter combinations tested
 - [x] Safety validations in place
 
-## Recent Updates (Current Session)
+## Recent Updates
 
-### Diamond & Oval Pattern Refinement
+### Phase 8: Vertical Row Stacking ✅ (Latest)
+- [x] Implemented hybrid auto-calculate with manual override
+- [x] Added `calculate_num_rows()` function to geometry.py
+- [x] Added `num_vertical_rows` parameter to KerfParameters
+- [x] Added `effective_num_rows` property for auto/manual calculation
+- [x] Updated diamond and oval generators to support row stacking
+- [x] Added `--num-rows` CLI option
+- [x] Enhanced interactive mode with row stacking prompts
+- [x] Created tall_material.py example demonstrating feature
+- [x] Updated README with visual examples and documentation
+- [x] Added documentation images (docs/images/)
+
+**Auto-calculation logic**: Materials > 150mm divided into ~150mm rows
+**Manual override**: Force specific row count for custom hinge zones
+**Row spacing**: 2mm gap between stacked rows
+
+### Diamond & Oval Pattern Refinement ✅
 - [x] Corrected pattern orientation (elongated vertical instead of 2D grid)
 - [x] Implemented split diamond geometry (top V + gap + bottom inverted V)
 - [x] Matched widths between full and split diamonds
@@ -130,12 +157,20 @@ All patterns create living hinges (flexible joints) - the difference is the cut 
 - [x] Improved horizontal fill (minimal side margins, better density)
 - [x] Fine-tuned density (6.5mm spacing for tighter fill)
 
-### Image Export Improvements
+### Image Export Improvements ✅
 - [x] Larger canvas (50% wider, 20% taller)
 - [x] Removed redundant material/cuts legend
 - [x] Repositioned parameter stats box
 - [x] Better margin allocation (top margin for annotations)
 - [x] Cleaner, more professional layout
+
+### Repository & Documentation ✅
+- [x] Apache 2.0 license added
+- [x] GitHub repository created: https://github.com/skeptomai/living-hinge-generator
+- [x] Comprehensive README with visual examples
+- [x] Pattern type documentation with images
+- [x] Vertical row stacking examples (auto and manual)
+- [x] Scaled images to 50% for better readability
 
 ## File Format Support
 
@@ -151,12 +186,16 @@ All patterns create living hinges (flexible joints) - the difference is the cut 
 
 ### Command Line
 ```bash
-# Generate diamond pattern (living hinge with diamond-shaped cuts)
-kerf generate -w 100 -h 100 -t 3 -k 0.2 -s 6.5 -l 8 -o 8 -p diamond \\
+# Generate diamond pattern with auto row stacking
+kerf generate -w 100 -h 320 -t 3 -k 0.2 -s 6.5 -l 12 -o 8 -p diamond \\
   --dxf output/pattern.dxf --png output/pattern.png
 
+# Force 2 rows on shorter material (manual override)
+kerf generate -w 100 -h 120 -t 3 -k 0.2 -s 6.5 -l 12 -o 8 -p diamond \\
+  --num-rows 2 --dxf output/pattern.dxf
+
 # Generate straight cuts (traditional living hinge)
-kerf generate -w 100 -h 100 -t 3 -k 0.2 -s 6.5 -l 8 -o 8 -p straight \\
+kerf generate -w 100 -h 100 -t 3 -k 0.2 -s 6.5 -l 80 -o 8 -p straight \\
   --dxf output/pattern.dxf --png output/pattern.png
 
 # Interactive mode
@@ -170,16 +209,21 @@ kerf calc-radius -s 5 -t 3 -k 0.2
 ```python
 from kerf_generator import KerfParameters, generate_living_hinge
 
+# Diamond pattern with auto row stacking
 params = KerfParameters(
     material_width=100,
-    material_height=100,
+    material_height=320,      # Tall material
     material_thickness=3,
     kerf_width=0.2,
     cut_spacing=6.5,
-    cut_length=8,
+    cut_length=12,
     cut_offset=8,
-    pattern_type='diamond'
+    pattern_type='diamond',
+    num_vertical_rows=None    # None = auto-calculate (will use 2 rows)
 )
+
+# Check effective rows
+print(f"Using {params.effective_num_rows} rows")
 
 lines = generate_living_hinge(
     params,
