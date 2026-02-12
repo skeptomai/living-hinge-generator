@@ -69,6 +69,13 @@ Elongated vertical diamonds alternating with split diamonds. Provides omnidirect
 
 *100×140mm material with single row of diamond patterns*
 
+### Oval Pattern (Single Row)
+Elongated vertical ovals alternating with split ovals. Smooth elliptical curves provide better stress distribution and a more organic appearance than diamonds.
+
+<img src="docs/images/oval_single_row.png" alt="Oval Pattern - Single Row" width="50%">
+
+*100×140mm material with single row of oval patterns*
+
 ## Vertical Row Stacking
 
 For tall materials, patterns can be automatically stacked into multiple horizontal bands for better flexibility control and structural integrity.
@@ -76,16 +83,24 @@ For tall materials, patterns can be automatically stacked into multiple horizont
 ### Automatic Stacking
 Materials taller than 150mm are automatically divided into multiple rows:
 
-<img src="docs/images/tall_diamond_auto.png" alt="Tall Material - Auto Stacked" width="50%">
+<img src="docs/images/tall_diamond_auto.png" alt="Tall Material - Auto Stacked (Diamond)" width="50%">
 
-*320mm tall material automatically stacked into 2 rows (~160mm each)*
+*Diamond: 320mm tall material automatically stacked into 2 rows (~160mm each)*
+
+<img src="docs/images/tall_oval_auto.png" alt="Tall Material - Auto Stacked (Oval)" width="50%">
+
+*Oval: 320mm tall material automatically stacked into 2 rows (~160mm each)*
 
 ### Manual Override
 You can force row stacking even on shorter materials for tighter hinge zones:
 
-<img src="docs/images/short_material_2rows_override.png" alt="Short Material - Manual Override" width="50%">
+<img src="docs/images/short_material_2rows_override.png" alt="Short Material - Manual Override (Diamond)" width="50%">
 
-*120mm material with manual override to force 2 rows (~60mm each)*
+*Diamond: 120mm material with manual override to force 2 rows (~60mm each)*
+
+<img src="docs/images/short_material_2rows_oval_override.png" alt="Short Material - Manual Override (Oval)" width="50%">
+
+*Oval: 120mm material with manual override to force 2 rows (~60mm each)*
 
 **Benefits of row stacking:**
 - Multiple hinge zones for better bending control
