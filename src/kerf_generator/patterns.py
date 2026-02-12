@@ -476,11 +476,19 @@ def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
             # Middle rows: use calculated row height
             actual_row_height = row_height
 
-        # Calculate oval height for this row (use ~80% of row height)
-        oval_height = actual_row_height * 0.8
+        # Calculate oval heights for this row
+        # Full ovals: shorter than diamonds, more inset from top/bottom
+        full_oval_height = actual_row_height * 0.70  # 70% of row height
+        full_oval_inset = (actual_row_height - full_oval_height) / 2  # Center vertically
 
-        # Gap for split ovals (space between top arc and bottom arc)
-        split_gap = oval_height * 0.3
+        # Split ovals: extend to actual row edges to connect with top/bottom outline
+        split_total_height = actual_row_height
+        split_gap_ratio = 0.10  # 10% gap
+        split_gap = split_total_height * split_gap_ratio
+        split_arc_height = (split_total_height - split_gap) / 2
+
+        # Use narrow width for both types (similar to diamonds at 35%)
+        narrow_width = oval_width * 0.35
 
         # Generate columns for this row
         for col in range(num_cols):
@@ -490,18 +498,18 @@ def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
             if col_x + oval_width > params.material_width - offset:
                 break
 
-            # Center x position for oval
+            # Center x position for oval (center the narrow shape)
             center_x = col_x + oval_width / 2
 
             if col % 2 == 0:
-                # Even column: Full elongated oval
-                lines.extend(_create_full_elongated_oval(
-                    center_x, row_y_start, oval_width, oval_height
+                # Even column: Split oval extending to row edges
+                lines.extend(_create_split_oval(
+                    center_x, row_y_start, narrow_width, split_total_height, split_gap
                 ))
             else:
-                # Odd column: Split oval (top arc + bottom arc)
-                lines.extend(_create_split_oval(
-                    center_x, row_y_start, oval_width, oval_height, split_gap
+                # Odd column: Full elongated oval (inset)
+                lines.extend(_create_full_elongated_oval(
+                    center_x, row_y_start + full_oval_inset, narrow_width, full_oval_height
                 ))
 
     return lines
@@ -547,14 +555,18 @@ def _create_full_elongated_oval(center_x: float, y: float, width: float, height:
 
 def _create_split_oval(center_x: float, y: float, width: float, height: float, gap: float, num_segments: int = 10) -> List[LineSegment]:
     """
-    Create a split oval with top arc and bottom arc separated by a gap.
+    Create a split oval with top arc opening at top edge and bottom arc opening at bottom edge.
+
+    Similar to split diamonds, the open ends are at the material edges so the outline
+    cuts through them. Top arc is like an upside-down U opening at the top, bottom arc
+    is like a U opening at the bottom.
 
     Args:
         center_x: X-coordinate of oval center (horizontal)
-        y: Bottom y-coordinate (starting point)
+        y: Bottom y-coordinate (starting point at material edge)
         width: Width of oval (minor axis, horizontal)
-        height: Total height that would be occupied if it were a full oval
-        gap: Size of gap between top arc and bottom arc
+        height: Total height from bottom edge to top edge
+        gap: Size of gap between the two arcs
         num_segments: Number of line segments for each arc (default: 10)
 
     Returns:
@@ -563,17 +575,21 @@ def _create_split_oval(center_x: float, y: float, width: float, height: float, g
     lines = []
     a = width / 2   # Semi-minor axis (horizontal)
 
-    # Top arc parameters
-    top_arc_height = (height - gap) / 2
-    b_top = top_arc_height / 2
-    center_y_top = y + height - top_arc_height / 2
+    # Calculate arc heights (each arc gets half the available height minus gap)
+    arc_height = (height - gap) / 2
 
-    # Generate points along top arc (from π to 2π, creating top curve)
+    # Top arc: opens at the TOP edge (y + height), curves DOWN
+    # Ellipse centered at top edge, using bottom half (π to 2π) for upside-down U
+    b_top = arc_height  # Full arc height as semi-axis
+    top_edge = y + height
+    center_y_top = top_edge  # Center AT the top edge
+
+    # Generate points along top arc (from π to 2π creates bottom half of ellipse)
     points_top = []
     for i in range(num_segments + 1):
         theta = math.pi + (math.pi * i) / num_segments
         x = center_x + a * math.cos(theta)
-        y_point = center_y_top + b_top * math.sin(theta)
+        y_point = center_y_top + b_top * math.sin(theta)  # sin(π to 2π) goes 0 → -1 → 0
         points_top.append((x, y_point))
 
     # Connect consecutive points for top arc
@@ -582,17 +598,18 @@ def _create_split_oval(center_x: float, y: float, width: float, height: float, g
         p2 = points_top[i + 1]
         lines.append(LineSegment(p1[0], p1[1], p2[0], p2[1], layer="cuts"))
 
-    # Bottom arc parameters
-    bottom_arc_height = (height - gap) / 2
-    b_bottom = bottom_arc_height / 2
-    center_y_bottom = y + bottom_arc_height / 2
+    # Bottom arc: opens at the BOTTOM edge (y), curves UP
+    # Ellipse centered at bottom edge, using top half (0 to π) for U shape
+    b_bottom = arc_height  # Full arc height as semi-axis
+    bottom_edge = y
+    center_y_bottom = bottom_edge  # Center AT the bottom edge
 
-    # Generate points along bottom arc (from 0 to π, creating bottom curve)
+    # Generate points along bottom arc (from 0 to π creates top half of ellipse)
     points_bottom = []
     for i in range(num_segments + 1):
         theta = (math.pi * i) / num_segments
         x = center_x + a * math.cos(theta)
-        y_point = center_y_bottom + b_bottom * math.sin(theta)
+        y_point = center_y_bottom + b_bottom * math.sin(theta)  # sin(0 to π) goes 0 → 1 → 0
         points_bottom.append((x, y_point))
 
     # Connect consecutive points for bottom arc
