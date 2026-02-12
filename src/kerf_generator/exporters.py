@@ -49,6 +49,10 @@ def export_dxf(
     doc = ezdxf.new("R2000")
     msp = doc.modelspace()
 
+    # Set units to millimeters (4 = mm, default is 6 = meters)
+    doc.header['$INSUNITS'] = 4
+    doc.header['$MEASUREMENT'] = 1  # Metric
+
     # Create layers with appropriate colors and line weights
     # Layer for cuts (red - standard laser cutting color)
     doc.layers.add(
