@@ -75,20 +75,37 @@ def export_dxf(
     # Add outline if requested
     if include_outline:
         # Material boundary rectangle
-        outline_points = [
-            (0, 0),
-            (params.material_width, 0),
-            (params.material_width, params.material_height),
-            (0, params.material_height),
-            (0, 0),  # Close the rectangle
-        ]
+        # For diamond/oval patterns, top and bottom edges need to be on "cuts" layer
+        # to cut through the open ends of split shapes
+        needs_cutting_edges = params.pattern_type in ["diamond", "oval"]
 
-        for i in range(len(outline_points) - 1):
-            msp.add_line(
-                start=outline_points[i],
-                end=outline_points[i + 1],
-                dxfattribs={"layer": "outline"},
-            )
+        # Bottom edge (y=0)
+        msp.add_line(
+            start=(0, 0),
+            end=(params.material_width, 0),
+            dxfattribs={"layer": "cuts" if needs_cutting_edges else "outline"},
+        )
+
+        # Right edge
+        msp.add_line(
+            start=(params.material_width, 0),
+            end=(params.material_width, params.material_height),
+            dxfattribs={"layer": "outline"},
+        )
+
+        # Top edge (y=material_height)
+        msp.add_line(
+            start=(params.material_width, params.material_height),
+            end=(0, params.material_height),
+            dxfattribs={"layer": "cuts" if needs_cutting_edges else "outline"},
+        )
+
+        # Left edge
+        msp.add_line(
+            start=(0, params.material_height),
+            end=(0, 0),
+            dxfattribs={"layer": "outline"},
+        )
 
     # Add text annotation with parameters
     text_y = params.material_height + 5

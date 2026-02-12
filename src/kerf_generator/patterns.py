@@ -217,17 +217,38 @@ def _generate_diamond_pattern(params: KerfParameters) -> List[LineSegment]:
     # Generate pattern for each row
     for row_idx in range(num_rows):
         # Calculate this row's vertical position
-        row_y_start = offset + (row_idx * (row_height + row_gap))
+        # First row starts at 0 (bottom edge), last row ends at material_height (top edge)
+        is_first_row = (row_idx == 0)
+        is_last_row = (row_idx == num_rows - 1)
+
+        if is_first_row:
+            row_y_start = 0  # Start at material bottom edge
+        else:
+            row_y_start = offset + (row_idx * (row_height + row_gap))
+
+        # Calculate actual row height for this row
+        if is_first_row and is_last_row:
+            # Single row: use full material height
+            actual_row_height = params.material_height
+        elif is_first_row:
+            # First row: extend to bottom edge
+            actual_row_height = offset + row_height
+        elif is_last_row:
+            # Last row: extend to top edge
+            actual_row_height = params.material_height - row_y_start
+        else:
+            # Middle rows: use calculated row height
+            actual_row_height = row_height
 
         # Calculate diamond heights for this row
         # Full diamonds: almost no inset from top/bottom of row (~1%)
-        full_diamond_height = row_height * 0.98
-        full_diamond_inset = row_height * 0.01
+        full_diamond_height = actual_row_height * 0.98
+        full_diamond_inset = actual_row_height * 0.01
 
         # Split diamonds: extend to actual row edges
         # Very narrow gap in middle (10%) for tight pattern
         split_gap_ratio = 0.10  # 10% gap
-        split_total_height = row_height
+        split_total_height = actual_row_height
         split_gap = split_total_height * split_gap_ratio
         split_v_height = (split_total_height - split_gap) / 2
 
@@ -432,10 +453,31 @@ def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
     # Generate pattern for each row
     for row_idx in range(num_rows):
         # Calculate this row's vertical position
-        row_y_start = offset + (row_idx * (row_height + row_gap))
+        # First row starts at 0 (bottom edge), last row ends at material_height (top edge)
+        is_first_row = (row_idx == 0)
+        is_last_row = (row_idx == num_rows - 1)
+
+        if is_first_row:
+            row_y_start = 0  # Start at material bottom edge
+        else:
+            row_y_start = offset + (row_idx * (row_height + row_gap))
+
+        # Calculate actual row height for this row
+        if is_first_row and is_last_row:
+            # Single row: use full material height
+            actual_row_height = params.material_height
+        elif is_first_row:
+            # First row: extend to bottom edge
+            actual_row_height = offset + row_height
+        elif is_last_row:
+            # Last row: extend to top edge
+            actual_row_height = params.material_height - row_y_start
+        else:
+            # Middle rows: use calculated row height
+            actual_row_height = row_height
 
         # Calculate oval height for this row (use ~80% of row height)
-        oval_height = row_height * 0.8
+        oval_height = actual_row_height * 0.8
 
         # Gap for split ovals (space between top arc and bottom arc)
         split_gap = oval_height * 0.3
@@ -567,7 +609,8 @@ def generate_outline(params: KerfParameters) -> List[LineSegment]:
     Generate outline rectangle for the material boundary.
 
     Creates a closed rectangle representing the material edges.
-    Useful for DXF export and preview visualization.
+    For diamond/oval patterns, top and bottom edges use "cuts" layer
+    to cut through the open ends of split shapes at the material edges.
 
     Args:
         params: KerfParameters defining the material dimensions
@@ -575,14 +618,18 @@ def generate_outline(params: KerfParameters) -> List[LineSegment]:
     Returns:
         List of 4 LineSegment objects forming a rectangle
     """
+    # For diamond/oval patterns, top and bottom edges need to cut through split shapes
+    needs_cutting_edges = params.pattern_type in ["diamond", "oval"]
+    horizontal_layer = "cuts" if needs_cutting_edges else "outline"
+
     outline = [
-        # Bottom edge
-        LineSegment(0, 0, params.material_width, 0, layer="outline"),
-        # Right edge
+        # Bottom edge (cuts layer for diamond/oval to close split shapes)
+        LineSegment(0, 0, params.material_width, 0, layer=horizontal_layer),
+        # Right edge (outline layer)
         LineSegment(params.material_width, 0, params.material_width, params.material_height, layer="outline"),
-        # Top edge
-        LineSegment(params.material_width, params.material_height, 0, params.material_height, layer="outline"),
-        # Left edge
+        # Top edge (cuts layer for diamond/oval to close split shapes)
+        LineSegment(params.material_width, params.material_height, 0, params.material_height, layer=horizontal_layer),
+        # Left edge (outline layer)
         LineSegment(0, params.material_height, 0, 0, layer="outline"),
     ]
 
