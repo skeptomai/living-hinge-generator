@@ -241,9 +241,9 @@ def _generate_diamond_pattern(params: KerfParameters) -> List[LineSegment]:
             actual_row_height = row_height
 
         # Calculate diamond heights for this row
-        # Full diamonds: almost no inset from top/bottom of row (~1%)
-        full_diamond_height = actual_row_height * 0.98
-        full_diamond_inset = actual_row_height * 0.01
+        # Full diamonds: 10% inset from top/bottom edges for clearance
+        full_diamond_height = actual_row_height * 0.80  # 80% height (10% inset each side)
+        full_diamond_inset = actual_row_height * 0.10  # 10% inset from edges
 
         # Split diamonds: extend to actual row edges
         # Very narrow gap in middle (10%) for tight pattern
@@ -477,9 +477,9 @@ def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
             actual_row_height = row_height
 
         # Calculate oval heights for this row
-        # Full ovals: shorter than diamonds, more inset from top/bottom
-        full_oval_height = actual_row_height * 0.70  # 70% of row height
-        full_oval_inset = (actual_row_height - full_oval_height) / 2  # Center vertically
+        # Full ovals: 10% inset from top/bottom edges for clearance
+        full_oval_height = actual_row_height * 0.80  # 80% height (10% inset each side)
+        full_oval_inset = actual_row_height * 0.10  # 10% inset from edges
 
         # Split ovals: extend to actual row edges to connect with top/bottom outline
         split_total_height = actual_row_height
