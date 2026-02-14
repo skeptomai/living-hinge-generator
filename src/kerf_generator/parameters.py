@@ -84,6 +84,7 @@ class KerfParameters:
             cut_spacing=self.cut_spacing,
             cut_length=self.cut_length,
             cut_offset=self.cut_offset,
+            pattern_type=self.pattern_type,
         )
 
         # Check pattern type

@@ -141,27 +141,33 @@ def calculate_minimum_spacing(
     material_thickness: float,
     kerf_width: float,
     safety_factor: float = 2.0,
+    pattern_type: str = "structural",
 ) -> float:
     """
     Calculate the minimum safe spacing between cuts.
 
-    Spacing too close can result in material failure, poor structural integrity,
-    or burns during cutting. This provides a conservative minimum.
+    Different pattern types have different spacing requirements:
+    - Living hinges (straight/diamond/oval): Tight spacing (2-5mm) for flexibility
+    - Structural cuts: Wide spacing (1.5-2x thickness) for strength
 
     Args:
         material_thickness: Thickness of material in mm
         kerf_width: Width of laser cut in mm
         safety_factor: Multiplier for safety margin (default: 2.0)
+        pattern_type: Type of pattern - "straight", "diamond", "oval", or "structural"
 
     Returns:
         Minimum safe spacing in mm
 
     Notes:
-        Rule of thumb: spacing should be at least 1.5-2x material thickness
-        for structural integrity. Thinner spacing risks:
-        - Material collapse during cutting
-        - Excessive charring between cuts
-        - Loss of structural strength
+        Living Hinges (straight/diamond/oval):
+            - Target: 3-5mm for good flexibility in wood
+            - Minimum: 2mm (tighter risks warping)
+            - Based on industry best practices for laser-cut wood living hinges
+
+        Structural Cuts:
+            - Rule of thumb: 1.5-2x material thickness for integrity
+            - Prevents material collapse, charring, and loss of strength
     """
     if material_thickness <= 0:
         raise ValueError("Material thickness must be positive")
@@ -170,11 +176,22 @@ def calculate_minimum_spacing(
     if safety_factor <= 0:
         raise ValueError("Safety factor must be positive")
 
-    # Minimum spacing based on material thickness and kerf
-    min_spacing = max(
-        material_thickness * 1.5,  # Structural minimum
-        kerf_width * 3.0,          # Practical cutting minimum
-    ) * safety_factor
+    # Different rules for living hinges vs structural cuts
+    is_living_hinge = pattern_type in ("straight", "diamond", "oval")
+
+    if is_living_hinge:
+        # Living hinges need TIGHT spacing for flexibility
+        # Based on industry research: 2-5mm range is optimal for 3mm wood
+        min_spacing = max(
+            2.0,                # Absolute minimum (below this risks warping)
+            kerf_width * 10.0,  # Ensure enough material between cuts
+        )
+    else:
+        # Structural cuts need WIDE spacing for strength
+        min_spacing = max(
+            material_thickness * 1.5,  # Structural minimum
+            kerf_width * 3.0,          # Practical cutting minimum
+        ) * safety_factor
 
     return min_spacing
 
@@ -225,6 +242,7 @@ def validate_pattern_parameters(
     cut_spacing: float,
     cut_length: float,
     cut_offset: float,
+    pattern_type: str = "structural",
 ) -> tuple[bool, list[str]]:
     """
     Validate that pattern parameters are physically reasonable and safe.
@@ -237,6 +255,7 @@ def validate_pattern_parameters(
         cut_spacing: Distance between cuts in mm
         cut_length: Length of each cut in mm
         cut_offset: Offset from edge in mm
+        pattern_type: Type of pattern - "straight", "diamond", "oval", or "structural"
 
     Returns:
         Tuple of (is_valid, list_of_warnings)
@@ -280,14 +299,29 @@ def validate_pattern_parameters(
         )
         is_valid = False
 
-    # Check spacing safety
-    min_spacing = calculate_minimum_spacing(material_thickness, kerf_width)
+    # Check spacing safety (pattern-type aware)
+    is_living_hinge = pattern_type in ("straight", "diamond", "oval")
+    min_spacing = calculate_minimum_spacing(material_thickness, kerf_width, pattern_type=pattern_type)
+
     if cut_spacing < min_spacing:
-        warnings.append(
-            f"Cut spacing ({cut_spacing}mm) is below recommended minimum ({min_spacing:.2f}mm). "
-            "Risk of structural failure."
-        )
+        if is_living_hinge:
+            warnings.append(
+                f"Cut spacing ({cut_spacing}mm) is below recommended minimum ({min_spacing:.2f}mm). "
+                "Risk of warping or unreliable cuts. For living hinges, 3-5mm spacing is optimal."
+            )
+        else:
+            warnings.append(
+                f"Cut spacing ({cut_spacing}mm) is below recommended minimum ({min_spacing:.2f}mm). "
+                "Risk of structural failure."
+            )
         # Don't set is_valid=False, just warn
+
+    # Living hinge specific guidance: warn if spacing is too wide for good flexibility
+    if is_living_hinge and cut_spacing > 8.0:
+        warnings.append(
+            f"Cut spacing ({cut_spacing}mm) is quite wide for a living hinge. "
+            "Consider 3-5mm for better flexibility. Wider spacing = stiffer hinge."
+        )
 
     # Check that cuts fit within material
     if cut_offset * 2 + cut_length > material_height:

@@ -232,6 +232,58 @@ lines = generate_living_hinge(
 )
 ```
 
+## Living Hinge Design Guidelines (Research)
+
+### Industry Best Practices for Wood/Plywood
+
+Based on research from laser cutting practitioners and woodworking experts:
+
+#### Recommended Spacing for Laser Cut Wood
+- **Tight flexibility**: 1/16" (1.6mm) spacing - bamboo plywood 1/8" thick
+- **Good balance**: 2-3.5mm spacing - common for zig-zag patterns
+- **Durable**: 1/8" (3.2mm) spacing - recommended for less breakage
+- **⚠️ Too tight**: 1mm spacing - can cause warping and reliability issues
+
+#### Cut Depth Guidelines
+- Leave **1/16" to 1/8"** (0.5-1mm) material on the backing ("bone")
+- For 3mm material: leave ~0.5-1mm uncut backing thickness
+- Thinner backing = more flex, but higher fracture risk
+
+#### Material Orientation
+- **CRITICAL**: Run cuts **along the grain**, NOT across it
+- Aligning with grain harnesses wood's natural structural flexibility
+- Cross-grain cuts will fracture more easily
+
+#### General Recommendations
+- **Test first!** Cut sample swatches with varying spacings
+- Use radius gauge to measure actual bend radius
+- Closer cuts = more flexibility, higher fracture risk
+- Wider spacing = more durable, less bendable
+- Best material thickness: 5/8" to 1" for traditional kerf bending
+
+### Useful Calculators & Tools
+- [Kerf Spacing Calculator - Metric](https://www.blocklayer.com/kerf-spacing)
+- [Kerf Spacing Calculator - Inch](https://www.blocklayer.com/kerf-spacingeng)
+- [Kerf Bend Calculator](https://calculator.academy/kerf-bend-calculator/)
+
+### Reference Articles & Guides
+- [Laser cutting a living hinge - Laser Co](https://thelaserco.com/laser-cutting-living-hinge/)
+- [Laser cut living hinges for neater designs - RS Online](https://www.rs-online.com/designspark/laser-cut-living-hinges-for-neater-designs)
+- [How To: Design a Living Hinge - Ponoko](https://www.ponoko.com/blog/how-to-make/how-to-design-a-living-hinge/)
+- [45: Living Hinges – 52LASERS](https://52lasers.com/2014/11/12/45-living-hinges/)
+- [Good article on designing living hinges - Glowforge Forum](https://community.glowforge.com/t/good-article-on-designing-living-hinges/127217)
+- [Calculated kerfs - Fine Woodworking](https://www.finewoodworking.com/2021/09/29/calculated-kerfs)
+- [Wood Bending by Kerfing - Lost Art Press](https://blog.lostartpress.com/2023/01/31/wood-bending-by-kerfing/)
+- [Bend-testing laser-cut plywood hinge patterns - The Kid Should See This](https://thekidshouldseethis.com/post/bend-testing-laser-cut-plywood-hinge-patterns)
+- [Lattice Hinge Design — Minimum Bend Radius - DefProc](https://www.defproc.co.uk/analysis/lattice-hinge-design-minimum-bend-radius/)
+- [Designing Living Hinge Laser Cut Handbag - Makers Workshop](https://makersworkshop.com/blogs/news/designing-and-making-a-living-hinge-laser-cut-handbag)
+
+### Parameter Optimization Notes
+- Current doc examples use 6.5mm spacing - may be too wide for tight bends
+- Industry suggests 3-5mm range for good flexibility in 3mm wood
+- Validation warning at 9mm may need adjustment for living hinge use case
+- Consider adding material-specific presets based on research
+
 ## Future Enhancements
 
 - [ ] Additional pattern types (hexagonal, crosshatch)
@@ -239,9 +291,10 @@ lines = generate_living_hinge(
 - [ ] Import DXF shapes and apply patterns
 - [ ] 3D preview of bent result
 - [ ] Web-based parameter calculator
-- [ ] Material library with presets
+- [ ] Material library with presets (based on research guidelines)
 - [ ] Pattern rotation/orientation options
 - [ ] Automated test suite expansion
+- [ ] Adjust validation warnings for living hinge vs structural kerf cutting
 
 ## Notes
 
