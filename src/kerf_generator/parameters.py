@@ -55,6 +55,7 @@ class KerfParameters:
 
     # Optional pattern configuration
     num_vertical_rows: Optional[int] = None  # None = auto-calculate based on height
+    row_spacing: Optional[float] = None  # None = use cut_spacing; set smaller for denser rows
 
     # Optional metadata
     material_name: Optional[str] = None
@@ -118,6 +119,11 @@ class KerfParameters:
                 warn_module.warn(warning, UserWarning)
 
         return is_valid, warnings
+
+    @property
+    def effective_row_spacing(self) -> float:
+        """Vertical pitch between rows. Defaults to cut_spacing when row_spacing is None."""
+        return self.row_spacing if self.row_spacing is not None else self.cut_spacing
 
     @property
     def bend_radius(self) -> float:

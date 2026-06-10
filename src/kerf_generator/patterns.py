@@ -203,7 +203,7 @@ def _generate_diamond_pattern(params: KerfParameters) -> List[LineSegment]:
     W = params.material_width
     H = params.material_height
 
-    num_rows = max(1, round(H / params.cut_spacing))
+    num_rows = max(1, round(H / params.effective_row_spacing))
     row_spacing = H / num_rows
     diamond_height = row_spacing * 0.90
 
@@ -211,11 +211,17 @@ def _generate_diamond_pattern(params: KerfParameters) -> List[LineSegment]:
     # right edge clips are symmetric.
     offset = (W % period) / 2
 
+    # Don't place rows so close to the top/bottom that they'd produce tiny slivers.
+    y_margin = diamond_height / 4
+
     for row_idx in range(num_rows + 1):
         y = row_idx * row_spacing
         if y > H + 1e-9:
             break
         y = min(y, H)
+
+        if y < y_margin or y > H - y_margin:
+            continue  # skip — would be clipped to less than quarter-height
 
         # Even rows anchor at offset; odd rows shift by half a period.
         anchor = offset if row_idx % 2 == 0 else offset + period / 2
@@ -343,8 +349,9 @@ def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
     lines: List[LineSegment] = []
 
     cut_len = params.cut_length
-    row_spacing = params.cut_spacing
-    period = cut_len + row_spacing
+    tab_width = params.cut_spacing            # horizontal gap between ovals
+    row_spacing = params.effective_row_spacing  # vertical pitch (may differ from tab_width)
+    period = cut_len + tab_width             # x-period stays tied to cut_spacing
     W = params.material_width
     H = params.material_height
     lens_height = row_spacing * 0.75
@@ -355,9 +362,17 @@ def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
     # Center the grid so both edge clips are symmetric.
     offset = (W % period) / 2
 
+    # Don't place rows so close to the top/bottom that they'd produce tiny slivers.
+    y_margin = lens_height / 4
+
     row = 0
     y = 0.0
     while y <= H + 1e-9:
+
+        if y < y_margin or y > H - y_margin:
+            y += row_spacing
+            row += 1
+            continue  # skip — would be clipped to less than quarter-height
 
         anchor = offset if row % 2 == 0 else offset + period / 2
         n_back = math.ceil((anchor + cut_len / 2) / period)
