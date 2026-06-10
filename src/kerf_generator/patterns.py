@@ -359,6 +359,12 @@ def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
     if period <= 0 or W <= 0 or H <= 0:
         return lines
 
+    # Distribute rows evenly across H (same as diamond) so top/bottom margins are equal.
+    num_rows = max(1, round(H / row_spacing))
+    row_spacing = H / num_rows
+
+    lens_height = row_spacing * 0.75  # recompute with adjusted spacing
+
     # Center the grid so both edge clips are symmetric.
     offset = (W % period) / 2
 
