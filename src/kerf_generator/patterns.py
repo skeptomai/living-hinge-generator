@@ -39,13 +39,15 @@ def generate_living_hinge(params: KerfParameters) -> List[LineSegment]:
         39
     """
     if params.pattern_type == "straight":
-        return _generate_straight_cut_pattern(params)
+        lines = _generate_straight_cut_pattern(params)
     elif params.pattern_type == "diamond":
-        return _generate_diamond_pattern(params)
+        lines = _generate_diamond_pattern(params)
     elif params.pattern_type == "oval":
-        return _generate_oval_pattern(params)
+        lines = _generate_oval_pattern(params)
     else:
         raise ValueError(f"Unknown pattern_type: {params.pattern_type}")
+
+    return _clip_lines_to_bounds(lines, 0, 0, params.material_width, params.material_height)
 
 
 def _generate_straight_cut_pattern(params: KerfParameters) -> List[LineSegment]:
@@ -169,465 +171,378 @@ def _generate_vertical_cuts(params: KerfParameters) -> List[LineSegment]:
 
 def _generate_diamond_pattern(params: KerfParameters) -> List[LineSegment]:
     """
-    Generate elongated vertical diamond pattern in columns.
+    Generate staggered horizontal cut pattern producing diamond-shaped voids.
 
-    Creates alternating columns of:
-    - Even columns: Full elongated diamonds (tall, narrow, nearly full height)
-    - Odd columns: Split diamonds (top V + gap + bottom inverted V)
+    Creates rows of horizontal rhombus cuts. Adjacent rows are offset by half the
+    period. Even rows begin with a half-diamond clipped at the left edge (x=0),
+    ensuring cuts reach the bending edge. Odd rows start at period/2 (a small tab
+    from the left). Both even and odd rows clip at the right edge as needed.
 
-    For tall materials, patterns can be stacked vertically in multiple rows
-    for better flexibility control and structural integrity.
+    Layout:
+        Row 0 (even): half-diamond at x=0, full diamonds, [half at x=W]
+        Row 1 (odd):  full diamonds from x=period/2, [half at x=W]
+        Row 2 (even): same as row 0, etc.
+
+    Where:
+        period = cut_length + cut_spacing
 
     Args:
         params: KerfParameters defining the pattern
-            - cut_length: Width of diamonds
-            - cut_spacing: Horizontal spacing between columns
-            - material_height: Determines diamond height (uses ~80% of available height per row)
-            - num_vertical_rows: Number of rows to stack (None = auto-calculate)
+            - cut_length:  horizontal span of each diamond (mm)
+            - cut_spacing: row pitch AND horizontal tab width (mm)
 
     Returns:
-        List of LineSegment objects representing the diamond cuts
+        List of LineSegment objects representing the cut lines
     """
     lines: List[LineSegment] = []
 
-    diamond_width = params.cut_length
-    spacing = params.cut_spacing
-    offset = params.cut_offset
+    cut_len = params.cut_length
+    tab_width = params.cut_spacing
+    period = cut_len + tab_width
 
-    # Available space
-    # For horizontal fill, use minimal horizontal offset (just a small margin)
-    horizontal_margin = diamond_width * 0.15  # Small margin on sides
-    available_width = params.material_width - (2 * horizontal_margin)
-    total_available_height = params.material_height - (2 * offset)
+    W = params.material_width
+    H = params.material_height
 
-    if available_width <= 0 or total_available_height <= 0:
-        return lines
+    num_rows = max(1, round(H / params.cut_spacing))
+    row_spacing = H / num_rows
+    diamond_height = row_spacing * 0.90
 
-    # Determine number of vertical rows
-    num_rows = params.effective_num_rows
+    # Center the grid: split leftover space equally on both sides so left and
+    # right edge clips are symmetric.
+    offset = (W % period) / 2
 
-    # Calculate row configuration
-    row_gap = 2.0  # Small gap between rows (mm)
-    total_gap_height = (num_rows - 1) * row_gap if num_rows > 1 else 0
-    row_height = (total_available_height - total_gap_height) / num_rows
+    for row_idx in range(num_rows + 1):
+        y = row_idx * row_spacing
+        if y > H + 1e-9:
+            break
+        y = min(y, H)
 
-    # Calculate number of columns
-    num_cols = int(available_width / spacing) + 1
+        # Even rows anchor at offset; odd rows shift by half a period.
+        anchor = offset if row_idx % 2 == 0 else offset + period / 2
 
-    # Generate pattern for each row
-    for row_idx in range(num_rows):
-        # Calculate this row's vertical position
-        # First row starts at 0 (bottom edge), last row ends at material_height (top edge)
-        is_first_row = (row_idx == 0)
-        is_last_row = (row_idx == num_rows - 1)
+        # Walk back far enough to catch any diamond that clips the left edge.
+        n_back = math.ceil((anchor + cut_len / 2) / period)
+        cx = anchor - n_back * period
 
-        if is_first_row:
-            row_y_start = 0  # Start at material bottom edge
-        else:
-            row_y_start = offset + (row_idx * (row_height + row_gap))
+        while True:
+            x_left = cx - cut_len / 2
+            x_right = cx + cut_len / 2
 
-        # Calculate actual row height for this row
-        if is_first_row and is_last_row:
-            # Single row: use full material height
-            actual_row_height = params.material_height
-        elif is_first_row:
-            # First row: extend to bottom edge
-            actual_row_height = offset + row_height
-        elif is_last_row:
-            # Last row: extend to top edge
-            actual_row_height = params.material_height - row_y_start
-        else:
-            # Middle rows: use calculated row height
-            actual_row_height = row_height
-
-        # Calculate diamond heights for this row
-        # Full diamonds: almost no inset from top/bottom of row (~1%)
-        full_diamond_height = actual_row_height * 0.98
-        full_diamond_inset = actual_row_height * 0.01
-
-        # Split diamonds: extend to actual row edges
-        # Very narrow gap in middle (10%) for tight pattern
-        split_gap_ratio = 0.10  # 10% gap
-        split_total_height = actual_row_height
-        split_gap = split_total_height * split_gap_ratio
-        split_v_height = (split_total_height - split_gap) / 2
-
-        # Generate columns for this row
-        for col in range(num_cols):
-            col_x = horizontal_margin + (col * spacing)
-
-            # Stop if we exceed material bounds (with small margin)
-            if col_x + diamond_width > params.material_width - horizontal_margin:
+            if x_left >= W + 1e-9:
                 break
+            if x_right <= -1e-9:
+                cx += period
+                continue
 
-            # Use same narrow width for both types
-            narrow_width = diamond_width * 0.35  # 35% width for both
+            clips_left = x_left < -1e-9
+            clips_right = x_right > W + 1e-9
 
-            if col % 2 == 0:
-                # Even column: Split diamond extending to actual row edges
-                lines.extend(_create_split_diamond_with_gap(
-                    col_x + (diamond_width - narrow_width) / 2,
-                    row_y_start,
-                    narrow_width,
-                    split_total_height,
-                    split_v_height,
-                    split_gap
-                ))
-            else:
-                # Odd column: Full elongated diamond (very narrow, minimal inset)
-                lines.extend(_create_full_elongated_diamond(
-                    col_x + (diamond_width - narrow_width) / 2,
-                    row_y_start + full_diamond_inset,
-                    narrow_width,
-                    full_diamond_height
-                ))
+            # Skip slivers narrower than 25% of a full diamond — only draw
+            # meaningful partial shapes at the edges.
+            min_partial = cut_len * 0.25
+
+            if clips_left and clips_right:
+                pass
+            elif clips_left and x_right >= min_partial:
+                lines.extend(_create_half_diamond_open_left(y, diamond_height, x_right))
+            elif clips_right and (W - x_left) >= min_partial:
+                lines.extend(_create_half_diamond_open_right(y, diamond_height, x_left, W))
+            elif not clips_left and not clips_right:
+                lines.extend(_create_diamond_cut(x_left, x_right, y, diamond_height))
+
+            cx += period
 
     return lines
 
 
-def _create_full_elongated_diamond(x: float, y: float, width: float, height: float) -> List[LineSegment]:
+def _create_diamond_cut(x_start: float, x_end: float, y: float, height: float) -> List[LineSegment]:
     """
-    Create a full elongated diamond shape (tall and narrow).
+    Create a single diamond (rhombus) cut shape.
 
-    Creates a diamond that stretches vertically with acute angles at top and bottom.
+    4 straight line segments of equal length meeting at sharp pointed corners:
+        Left tip → Top tip → Right tip → Bottom tip → Left tip
 
     Args:
-        x: Left x-coordinate of diamond
-        y: Bottom y-coordinate (starting point)
-        width: Width of diamond at its widest point
-        height: Total height of diamond
+        x_start: Left tip x-coordinate
+        x_end:   Right tip x-coordinate
+        y:       Center y-coordinate (left and right tips sit at this y)
+        height:  Total height of diamond (top tip to bottom tip distance)
 
     Returns:
-        List of 4 LineSegment objects forming an elongated diamond
+        List of 4 LineSegment objects forming a closed rhombus
     """
-    # Diamond vertices (very tall and narrow)
-    center_x = x + width / 2
-    mid_y = y + height / 2
+    cx = (x_start + x_end) / 2
+    half_h = height / 2
 
-    top = (center_x, y + height)      # Top point
-    right = (x + width, mid_y)        # Right widest point (middle)
-    bottom = (center_x, y)            # Bottom point
-    left = (x, mid_y)                 # Left widest point (middle)
+    left   = (x_start, y)
+    top    = (cx, y + half_h)
+    right  = (x_end,   y)
+    bottom = (cx, y - half_h)
 
     return [
-        LineSegment(bottom[0], bottom[1], left[0], left[1], layer="cuts"),    # Bottom to left
-        LineSegment(left[0], left[1], top[0], top[1], layer="cuts"),          # Left to top
-        LineSegment(top[0], top[1], right[0], right[1], layer="cuts"),        # Top to right
-        LineSegment(right[0], right[1], bottom[0], bottom[1], layer="cuts"),  # Right to bottom
+        LineSegment(left[0],   left[1],   top[0],    top[1],    layer="cuts"),
+        LineSegment(top[0],    top[1],    right[0],  right[1],  layer="cuts"),
+        LineSegment(right[0],  right[1],  bottom[0], bottom[1], layer="cuts"),
+        LineSegment(bottom[0], bottom[1], left[0],   left[1],   layer="cuts"),
     ]
 
 
-def _create_split_diamond(x: float, y: float, width: float, height: float, gap: float) -> List[LineSegment]:
+def _create_half_diamond_open_left(center_y: float, height: float, right_tip_x: float) -> List[LineSegment]:
     """
-    Create a split diamond with top V (apex down) and bottom inverted V (apex up).
+    Right-facing half-diamond at the left material edge (x=0).
 
-    Each V is approximately half the total height with a gap in the middle for stability.
+    Two segments forming a '>' shape: endpoints on the left edge, tip at right_tip_x.
 
     Args:
-        x: Left x-coordinate of diamond
-        y: Bottom y-coordinate (starting point)
-        width: Width of diamond at its widest point
-        height: Total height that would be occupied if it were a full diamond
-        gap: Size of gap between the two V shapes
-
-    Returns:
-        List of 4 LineSegment objects (2 for top V, 2 for bottom inverted V)
+        center_y:    y-coordinate of the tip
+        height:      Diamond height (endpoints at center_y ± height/2)
+        right_tip_x: x of the inward tip (= cx + cut_len/2 of the clipped diamond)
     """
-    center_x = x + width / 2
-
-    # Each V shape occupies half the total height
-    v_height = height / 2
-
-    # Top V shape (apex pointing DOWN)
-    # Wide at the top, narrows to a point going downward
-    top_left = (x, y + height)  # Left point at very top
-    top_right = (x + width, y + height)  # Right point at very top
-    top_apex = (center_x, y + height - v_height)  # Apex points down
-
-    # Bottom inverted V shape (apex pointing UP)
-    # Starts at a point, widens going downward
-    bottom_apex = (center_x, y + v_height)  # Apex points up
-    bottom_left = (x, y)  # Left point at very bottom
-    bottom_right = (x + width, y)  # Right point at very bottom
-
+    b = height / 2
     return [
-        # Top V (apex pointing down) - left to apex, apex to right
-        LineSegment(top_left[0], top_left[1], top_apex[0], top_apex[1], layer="cuts"),
-        LineSegment(top_apex[0], top_apex[1], top_right[0], top_right[1], layer="cuts"),
-        # Bottom inverted V (apex pointing up) - left to apex, apex to right
-        LineSegment(bottom_left[0], bottom_left[1], bottom_apex[0], bottom_apex[1], layer="cuts"),
-        LineSegment(bottom_apex[0], bottom_apex[1], bottom_right[0], bottom_right[1], layer="cuts"),
+        LineSegment(0, center_y + b, right_tip_x, center_y, layer="cuts"),
+        LineSegment(right_tip_x, center_y, 0, center_y - b, layer="cuts"),
     ]
 
 
-def _create_split_diamond_with_gap(x: float, y: float, width: float, total_height: float, v_height: float, gap: float) -> List[LineSegment]:
+def _create_half_diamond_open_right(center_y: float, height: float, left_tip_x: float, W: float) -> List[LineSegment]:
     """
-    Create a split diamond with specified V heights and gap.
+    Left-facing half-diamond at the right material edge (x=W).
 
-    Top V opens at the very top, bottom inverted V opens at the very bottom,
-    with a gap in the middle for stability.
+    Two segments forming a '<' shape: endpoints on the right edge, tip at left_tip_x.
 
     Args:
-        x: Left x-coordinate of diamond
-        y: Bottom y-coordinate (starting point)
-        width: Width of diamond at its widest point
-        total_height: Total height of the material region
-        v_height: Height of each V shape
-        gap: Size of gap between the two V shapes
-
-    Returns:
-        List of 4 LineSegment objects (2 for top V, 2 for bottom inverted V)
+        center_y:   y-coordinate of the tip
+        height:     Diamond height (endpoints at center_y ± height/2)
+        left_tip_x: x of the inward tip (= cx - cut_len/2 of the clipped diamond)
+        W:          Material width
     """
-    center_x = x + width / 2
-
-    # Top V shape (apex pointing DOWN)
-    # Opens wide at the very top of material region
-    top_left = (x, y + total_height)  # Left point at very top
-    top_right = (x + width, y + total_height)  # Right point at very top
-    top_apex = (center_x, y + total_height - v_height)  # Apex points down
-
-    # Bottom inverted V shape (apex pointing UP)
-    # Opens wide at the very bottom of material region
-    bottom_apex = (center_x, y + v_height)  # Apex points up
-    bottom_left = (x, y)  # Left point at very bottom
-    bottom_right = (x + width, y)  # Right point at very bottom
-
+    b = height / 2
     return [
-        # Top V (apex pointing down) - left to apex, apex to right
-        LineSegment(top_left[0], top_left[1], top_apex[0], top_apex[1], layer="cuts"),
-        LineSegment(top_apex[0], top_apex[1], top_right[0], top_right[1], layer="cuts"),
-        # Bottom inverted V (apex pointing up) - left to apex, apex to right
-        LineSegment(bottom_left[0], bottom_left[1], bottom_apex[0], bottom_apex[1], layer="cuts"),
-        LineSegment(bottom_apex[0], bottom_apex[1], bottom_right[0], bottom_right[1], layer="cuts"),
+        LineSegment(W, center_y + b, left_tip_x, center_y, layer="cuts"),
+        LineSegment(left_tip_x, center_y, W, center_y - b, layer="cuts"),
     ]
 
 
 def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
     """
-    Generate elongated vertical oval pattern in columns.
+    Generate staggered horizontal lens-cut pattern producing pointed-ellipse voids.
 
-    Creates alternating columns of:
-    - Even columns: Full elongated ovals (tall, narrow, nearly full height)
-    - Odd columns: Split ovals (top arc + gap + bottom arc)
-
-    For tall materials, patterns can be stacked vertically in multiple rows
-    for better flexibility control and structural integrity.
-
-    This pattern allows the material to bend horizontally while providing
-    smooth curves that distribute stress better than straight cuts.
+    Same row/stagger layout as the diamond pattern. Even rows begin with a half-oval
+    clipped at the left edge (x=0) so cuts reach the bending edge. Odd rows start
+    at period/2 (small tab from left). Both row types clip at the right edge.
 
     Args:
         params: KerfParameters defining the pattern
-            - cut_length: Width of ovals
-            - cut_spacing: Horizontal spacing between columns
-            - material_height: Determines oval height (uses ~80% of available height per row)
-            - num_vertical_rows: Number of rows to stack (None = auto-calculate)
+            - cut_length:  horizontal span of each lens cut (mm)
+            - cut_spacing: row pitch AND horizontal tab width (mm)
 
     Returns:
-        List of LineSegment objects representing the oval cuts
+        List of LineSegment objects representing the lens-shaped cuts
     """
     lines: List[LineSegment] = []
 
-    oval_width = params.cut_length
-    spacing = params.cut_spacing
-    offset = params.cut_offset
+    cut_len = params.cut_length
+    row_spacing = params.cut_spacing
+    period = cut_len + row_spacing
+    W = params.material_width
+    H = params.material_height
+    lens_height = row_spacing * 0.75
 
-    # Available space
-    available_width = params.material_width - (2 * offset)
-    total_available_height = params.material_height - (2 * offset)
-
-    if available_width <= 0 or total_available_height <= 0:
+    if period <= 0 or W <= 0 or H <= 0:
         return lines
 
-    # Determine number of vertical rows
-    num_rows = params.effective_num_rows
+    # Center the grid so both edge clips are symmetric.
+    offset = (W % period) / 2
 
-    # Calculate row configuration
-    row_gap = 2.0  # Small gap between rows (mm)
-    total_gap_height = (num_rows - 1) * row_gap if num_rows > 1 else 0
-    row_height = (total_available_height - total_gap_height) / num_rows
+    row = 0
+    y = 0.0
+    while y <= H + 1e-9:
 
-    # Calculate number of columns
-    num_cols = int(available_width / spacing) + 1
+        anchor = offset if row % 2 == 0 else offset + period / 2
+        n_back = math.ceil((anchor + cut_len / 2) / period)
+        cx = anchor - n_back * period
 
-    # Generate pattern for each row
-    for row_idx in range(num_rows):
-        # Calculate this row's vertical position
-        # First row starts at 0 (bottom edge), last row ends at material_height (top edge)
-        is_first_row = (row_idx == 0)
-        is_last_row = (row_idx == num_rows - 1)
+        while True:
+            x_left = cx - cut_len / 2
+            x_right = cx + cut_len / 2
 
-        if is_first_row:
-            row_y_start = 0  # Start at material bottom edge
-        else:
-            row_y_start = offset + (row_idx * (row_height + row_gap))
-
-        # Calculate actual row height for this row
-        if is_first_row and is_last_row:
-            # Single row: use full material height
-            actual_row_height = params.material_height
-        elif is_first_row:
-            # First row: extend to bottom edge
-            actual_row_height = offset + row_height
-        elif is_last_row:
-            # Last row: extend to top edge
-            actual_row_height = params.material_height - row_y_start
-        else:
-            # Middle rows: use calculated row height
-            actual_row_height = row_height
-
-        # Calculate oval heights for this row
-        # Full ovals: shorter than diamonds, more inset from top/bottom
-        full_oval_height = actual_row_height * 0.70  # 70% of row height
-        full_oval_inset = (actual_row_height - full_oval_height) / 2  # Center vertically
-
-        # Split ovals: extend to actual row edges to connect with top/bottom outline
-        split_total_height = actual_row_height
-        split_gap_ratio = 0.10  # 10% gap
-        split_gap = split_total_height * split_gap_ratio
-        split_arc_height = (split_total_height - split_gap) / 2
-
-        # Use narrow width for both types (similar to diamonds at 35%)
-        narrow_width = oval_width * 0.35
-
-        # Generate columns for this row
-        for col in range(num_cols):
-            col_x = offset + (col * spacing)
-
-            # Stop if we exceed material bounds
-            if col_x + oval_width > params.material_width - offset:
+            if x_left >= W + 1e-9:
                 break
+            if x_right <= -1e-9:
+                cx += period
+                continue
 
-            # Center x position for oval (center the narrow shape)
-            center_x = col_x + oval_width / 2
+            clips_left = x_left < -1e-9
+            clips_right = x_right > W + 1e-9
 
-            if col % 2 == 0:
-                # Even column: Split oval extending to row edges
-                lines.extend(_create_split_oval(
-                    center_x, row_y_start, narrow_width, split_total_height, split_gap
-                ))
-            else:
-                # Odd column: Full elongated oval (inset)
-                lines.extend(_create_full_elongated_oval(
-                    center_x, row_y_start + full_oval_inset, narrow_width, full_oval_height
-                ))
+            min_partial = cut_len * 0.25
+
+            if clips_left and clips_right:
+                pass
+            elif clips_left and x_right >= min_partial:
+                lines.extend(_create_half_lens_open_left(y, lens_height, cx, cut_len))
+            elif clips_right and (W - x_left) >= min_partial:
+                lines.extend(_create_half_lens_open_right(y, lens_height, cx, cut_len, W))
+            elif not clips_left and not clips_right:
+                lines.extend(_create_lens_cut(x_left, x_right, y, lens_height))
+
+            cx += period
+
+        y += row_spacing
+        row += 1
 
     return lines
 
 
-def _create_full_elongated_oval(center_x: float, y: float, width: float, height: float, num_segments: int = 20) -> List[LineSegment]:
+def _create_lens_cut(x_start: float, x_end: float, y: float, height: float, num_segments: int = 12) -> List[LineSegment]:
     """
-    Create a full elongated oval shape (tall and narrow).
+    Create a lens/eye shaped cut (closed pointed ellipse) approximated with line segments.
 
-    Uses parametric ellipse equation with vertical major axis.
+    The lens is pointed at both ends (x_start, y) and (x_end, y), with the top arc
+    bulging upward and the bottom arc bulging downward.
 
     Args:
-        center_x: X-coordinate of oval center (horizontal)
-        y: Bottom y-coordinate (starting point)
-        width: Width of oval (minor axis, horizontal)
-        height: Height of oval (major axis, vertical)
-        num_segments: Number of line segments to approximate the oval (default: 20)
+        x_start: Left tip of lens
+        x_end:   Right tip of lens
+        y:       Center y-coordinate (the lens is symmetric about this y)
+        height:  Total height of lens (top to bottom, so each arc bulges by height/2)
+        num_segments: Segments per arc half (default: 12)
 
     Returns:
-        List of LineSegment objects forming an elongated oval
+        List of LineSegment objects forming the closed lens outline
     """
     lines = []
-    a = width / 2   # Semi-minor axis (horizontal)
-    b = height / 2  # Semi-major axis (vertical)
-    center_y = y + height / 2
+    a = (x_end - x_start) / 2   # semi-major axis (horizontal)
+    b = height / 2               # semi-minor axis (vertical)
+    cx = x_start + a
+    cy = y
 
-    # Generate points around the ellipse
+    # Top arc: theta 0 → π  (sin is positive → curves upward)
+    # Bottom arc: theta π → 2π  (sin is negative → curves downward)
+    num_pts = num_segments * 2
     points = []
-    for i in range(num_segments):
-        theta = (2 * math.pi * i) / num_segments
-        x = center_x + a * math.cos(theta)
-        y_point = center_y + b * math.sin(theta)
-        points.append((x, y_point))
+    for i in range(num_pts):
+        theta = (2 * math.pi * i) / num_pts
+        px = cx + a * math.cos(theta)
+        py = cy + b * math.sin(theta)
+        points.append((px, py))
 
-    # Connect consecutive points
-    for i in range(num_segments):
+    for i in range(num_pts):
         p1 = points[i]
-        p2 = points[(i + 1) % num_segments]  # Wrap around to close the shape
+        p2 = points[(i + 1) % num_pts]
         lines.append(LineSegment(p1[0], p1[1], p2[0], p2[1], layer="cuts"))
 
     return lines
 
 
-def _create_split_oval(center_x: float, y: float, width: float, height: float, gap: float, num_segments: int = 10) -> List[LineSegment]:
+def _create_half_lens_open_left(center_y: float, height: float, cx: float, cut_len: float, num_segments: int = 8) -> List[LineSegment]:
     """
-    Create a split oval with top arc opening at top edge and bottom arc opening at bottom edge.
+    Visible arc of a lens centred at (cx, center_y) clipped at the left edge (x=0).
 
-    Similar to split diamonds, the open ends are at the material edges so the outline
-    cuts through them. Top arc is like an upside-down U opening at the top, bottom arc
-    is like a U opening at the bottom.
+    Traces from (0, center_y-b_clip) → right tip → (0, center_y+b_clip) using the
+    angular range where the ellipse is within x ≥ 0.
 
     Args:
-        center_x: X-coordinate of oval center (horizontal)
-        y: Bottom y-coordinate (starting point at material edge)
-        width: Width of oval (minor axis, horizontal)
-        height: Total height from bottom edge to top edge
-        gap: Size of gap between the two arcs
-        num_segments: Number of line segments for each arc (default: 10)
-
-    Returns:
-        List of LineSegment objects forming split oval (top arc + bottom arc)
+        center_y:     y-coordinate of the ellipse centre
+        height:       Full lens height (semi-minor axis b = height/2)
+        cx:           x-coordinate of the ellipse centre (< cut_len/2, so it clips at x=0)
+        cut_len:      Full lens width (semi-major axis a = cut_len/2)
+        num_segments: Line-segment count for the arc
     """
-    lines = []
-    a = width / 2   # Semi-minor axis (horizontal)
-
-    # Calculate arc heights (each arc gets half the available height minus gap)
-    arc_height = (height - gap) / 2
-
-    # Top arc: opens at the TOP edge (y + height), curves DOWN
-    # Ellipse centered at top edge, using bottom half (π to 2π) for upside-down U
-    b_top = arc_height  # Full arc height as semi-axis
-    top_edge = y + height
-    center_y_top = top_edge  # Center AT the top edge
-
-    # Generate points along top arc (from π to 2π creates bottom half of ellipse)
-    points_top = []
+    a = cut_len / 2
+    b = height / 2
+    # Angle where ellipse crosses x=0: cx + a*cos(θ) = 0 → cos(θ) = -cx/a
+    cos_theta = max(-1.0, min(1.0, -cx / a))
+    theta_cross = math.acos(cos_theta)  # in [0, π]; right arc spans [-theta_cross, theta_cross]
+    points = []
     for i in range(num_segments + 1):
-        theta = math.pi + (math.pi * i) / num_segments
-        x = center_x + a * math.cos(theta)
-        y_point = center_y_top + b_top * math.sin(theta)  # sin(π to 2π) goes 0 → -1 → 0
-        points_top.append((x, y_point))
+        theta = -theta_cross + 2 * theta_cross * i / num_segments
+        points.append((cx + a * math.cos(theta), center_y + b * math.sin(theta)))
+    return [
+        LineSegment(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1], layer="cuts")
+        for i in range(len(points) - 1)
+    ]
 
-    # Connect consecutive points for top arc
-    for i in range(len(points_top) - 1):
-        p1 = points_top[i]
-        p2 = points_top[i + 1]
-        lines.append(LineSegment(p1[0], p1[1], p2[0], p2[1], layer="cuts"))
 
-    # Bottom arc: opens at the BOTTOM edge (y), curves UP
-    # Ellipse centered at bottom edge, using top half (0 to π) for U shape
-    b_bottom = arc_height  # Full arc height as semi-axis
-    bottom_edge = y
-    center_y_bottom = bottom_edge  # Center AT the bottom edge
+def _create_half_lens_open_right(center_y: float, height: float, cx: float, cut_len: float, W: float, num_segments: int = 8) -> List[LineSegment]:
+    """
+    Visible arc of a lens centred at (cx, center_y) clipped at the right edge (x=W).
 
-    # Generate points along bottom arc (from 0 to π creates top half of ellipse)
-    points_bottom = []
+    Traces from (W, center_y+b_clip) → left tip → (W, center_y-b_clip).
+    Arc spans [theta_cross, 2π-theta_cross] so both endpoints land exactly on x=W.
+
+    Args:
+        center_y:     y-coordinate of the ellipse centre
+        height:       Full lens height (semi-minor axis b = height/2)
+        cx:           x-coordinate of the ellipse centre (> W - cut_len/2, so it clips at x=W)
+        cut_len:      Full lens width (semi-major axis a = cut_len/2)
+        W:            Material width
+        num_segments: Line-segment count for the arc
+    """
+    a = cut_len / 2
+    b = height / 2
+    # Crossing angle: cx + a*cos(θ) = W → cos(θ) = (W-cx)/a
+    cos_theta = max(-1.0, min(1.0, (W - cx) / a))
+    theta_cross = math.acos(cos_theta)  # in [π/2, π] since cx > W-a
+    # Left portion: theta from theta_cross → 2π-theta_cross (through π).
+    # At theta=theta_cross: px=W (top crossing). At theta=π: px=cx-a (left tip). At theta=2π-theta_cross: px=W (bottom crossing).
+    arc_span = 2 * math.pi - 2 * theta_cross
+    points = []
     for i in range(num_segments + 1):
-        theta = (math.pi * i) / num_segments
-        x = center_x + a * math.cos(theta)
-        y_point = center_y_bottom + b_bottom * math.sin(theta)  # sin(0 to π) goes 0 → 1 → 0
-        points_bottom.append((x, y_point))
+        theta = theta_cross + arc_span * i / num_segments
+        points.append((cx + a * math.cos(theta), center_y + b * math.sin(theta)))
+    return [
+        LineSegment(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1], layer="cuts")
+        for i in range(len(points) - 1)
+    ]
 
-    # Connect consecutive points for bottom arc
-    for i in range(len(points_bottom) - 1):
-        p1 = points_bottom[i]
-        p2 = points_bottom[i + 1]
-        lines.append(LineSegment(p1[0], p1[1], p2[0], p2[1], layer="cuts"))
 
-    return lines
+def _liang_barsky(
+    x1: float, y1: float, x2: float, y2: float,
+    xmin: float, ymin: float, xmax: float, ymax: float,
+) -> tuple[float, float, float, float] | None:
+    """
+    Clip segment (x1,y1)→(x2,y2) to axis-aligned box using Liang-Barsky.
+
+    Returns clipped (x1, y1, x2, y2) or None if the segment is fully outside.
+    """
+    dx, dy = x2 - x1, y2 - y1
+    p = (-dx, dx, -dy, dy)
+    q = (x1 - xmin, xmax - x1, y1 - ymin, ymax - y1)
+    t0, t1 = 0.0, 1.0
+    for pi, qi in zip(p, q):
+        if pi == 0.0:
+            if qi < 0.0:
+                return None
+        elif pi < 0.0:
+            t0 = max(t0, qi / pi)
+        else:
+            t1 = min(t1, qi / pi)
+    if t0 > t1:
+        return None
+    return x1 + t0 * dx, y1 + t0 * dy, x1 + t1 * dx, y1 + t1 * dy
+
+
+def _clip_lines_to_bounds(
+    lines: List[LineSegment],
+    xmin: float, ymin: float, xmax: float, ymax: float,
+) -> List[LineSegment]:
+    """Clip all segments to the given bounding box, discarding those fully outside."""
+    result: List[LineSegment] = []
+    for seg in lines:
+        clipped = _liang_barsky(seg.x1, seg.y1, seg.x2, seg.y2, xmin, ymin, xmax, ymax)
+        if clipped:
+            x1, y1, x2, y2 = clipped
+            result.append(LineSegment(x1, y1, x2, y2, layer=seg.layer))
+    return result
 
 
 def generate_outline(params: KerfParameters) -> List[LineSegment]:
     """
     Generate outline rectangle for the material boundary.
 
-    Creates a closed rectangle representing the material edges.
-    For diamond/oval patterns, top and bottom edges use "cuts" layer
-    to cut through the open ends of split shapes at the material edges.
+    Creates a closed rectangle representing the material edges on the outline layer.
 
     Args:
         params: KerfParameters defining the material dimensions
@@ -635,22 +550,12 @@ def generate_outline(params: KerfParameters) -> List[LineSegment]:
     Returns:
         List of 4 LineSegment objects forming a rectangle
     """
-    # For diamond/oval patterns, top and bottom edges need to cut through split shapes
-    needs_cutting_edges = params.pattern_type in ["diamond", "oval"]
-    horizontal_layer = "cuts" if needs_cutting_edges else "outline"
-
-    outline = [
-        # Bottom edge (cuts layer for diamond/oval to close split shapes)
-        LineSegment(0, 0, params.material_width, 0, layer=horizontal_layer),
-        # Right edge (outline layer)
+    return [
+        LineSegment(0, 0, params.material_width, 0, layer="outline"),
         LineSegment(params.material_width, 0, params.material_width, params.material_height, layer="outline"),
-        # Top edge (cuts layer for diamond/oval to close split shapes)
-        LineSegment(params.material_width, params.material_height, 0, params.material_height, layer=horizontal_layer),
-        # Left edge (outline layer)
+        LineSegment(params.material_width, params.material_height, 0, params.material_height, layer="outline"),
         LineSegment(0, params.material_height, 0, 0, layer="outline"),
     ]
-
-    return outline
 
 
 def get_pattern_bounds(lines: List[LineSegment]) -> tuple[float, float, float, float]:

@@ -225,6 +225,7 @@ def validate_pattern_parameters(
     cut_spacing: float,
     cut_length: float,
     cut_offset: float,
+    pattern_type: str = "straight",
 ) -> tuple[bool, list[str]]:
     """
     Validate that pattern parameters are physically reasonable and safe.
@@ -268,7 +269,10 @@ def validate_pattern_parameters(
         is_valid = False
 
     # Check geometric constraints
-    if cut_length >= material_height:
+    # Diamond/oval use horizontal cuts so only width constraint applies to cut_length
+    is_horizontal_pattern = pattern_type in ("diamond", "oval")
+
+    if not is_horizontal_pattern and cut_length >= material_height:
         warnings.append(
             f"Cut length ({cut_length}mm) must be less than material height ({material_height}mm)"
         )
@@ -290,7 +294,7 @@ def validate_pattern_parameters(
         # Don't set is_valid=False, just warn
 
     # Check that cuts fit within material
-    if cut_offset * 2 + cut_length > material_height:
+    if not is_horizontal_pattern and cut_offset * 2 + cut_length > material_height:
         warnings.append(
             f"Cut length + offsets ({cut_offset * 2 + cut_length}mm) exceeds material height"
         )

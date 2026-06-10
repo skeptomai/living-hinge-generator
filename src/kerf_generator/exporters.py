@@ -78,33 +78,22 @@ def export_dxf(
 
     # Add outline if requested
     if include_outline:
-        # Material boundary rectangle
-        # For diamond/oval patterns, top and bottom edges need to be on "cuts" layer
-        # to cut through the open ends of split shapes
-        needs_cutting_edges = params.pattern_type in ["diamond", "oval"]
-
-        # Bottom edge (y=0)
+        # Material boundary rectangle (all edges on outline layer)
         msp.add_line(
             start=(0, 0),
             end=(params.material_width, 0),
-            dxfattribs={"layer": "cuts" if needs_cutting_edges else "outline"},
+            dxfattribs={"layer": "outline"},
         )
-
-        # Right edge
         msp.add_line(
             start=(params.material_width, 0),
             end=(params.material_width, params.material_height),
             dxfattribs={"layer": "outline"},
         )
-
-        # Top edge (y=material_height)
         msp.add_line(
             start=(params.material_width, params.material_height),
             end=(0, params.material_height),
-            dxfattribs={"layer": "cuts" if needs_cutting_edges else "outline"},
+            dxfattribs={"layer": "outline"},
         )
-
-        # Left edge
         msp.add_line(
             start=(0, params.material_height),
             end=(0, 0),
