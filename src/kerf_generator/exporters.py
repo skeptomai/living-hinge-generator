@@ -201,10 +201,15 @@ def export_image(
     # Add annotations if requested
     if show_annotations:
         # Parameter text box
+        spacing_str = (
+            f"X:{params.cut_spacing} Y:{params.effective_row_spacing} mm"
+            if params.effective_row_spacing != params.cut_spacing
+            else f"{params.cut_spacing} mm"
+        )
         param_text = (
             f"Material: {params.material_width} × {params.material_height} × {params.material_thickness} mm\n"
-            f"Cuts: {len(lines)} × {params.cut_length} mm, spacing {params.cut_spacing} mm\n"
-            f"Kerf: {params.kerf_width} mm, Direction: {params.pattern_direction}\n"
+            f"Cuts: {len(lines)} × {params.cut_length} mm, spacing {spacing_str}\n"
+            f"Kerf: {params.kerf_width} mm, Pattern: {params.pattern_type}\n"
             f"Bend radius: {params.bend_radius:.1f} mm, Max angle: {params.max_bend_angle:.1f}°"
         )
 

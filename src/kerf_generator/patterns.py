@@ -205,7 +205,7 @@ def _generate_diamond_pattern(params: KerfParameters) -> List[LineSegment]:
 
     num_rows = max(1, round(H / params.effective_row_spacing))
     row_spacing = H / num_rows
-    diamond_height = row_spacing * 0.90
+    diamond_height = min(params.effective_cut_height, row_spacing * 0.95)
 
     # Center the grid: split leftover space equally on both sides so left and
     # right edge clips are symmetric.
@@ -354,8 +354,6 @@ def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
     period = cut_len + tab_width             # x-period stays tied to cut_spacing
     W = params.material_width
     H = params.material_height
-    lens_height = row_spacing * 0.75
-
     if period <= 0 or W <= 0 or H <= 0:
         return lines
 
@@ -363,7 +361,11 @@ def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
     num_rows = max(1, round(H / row_spacing))
     row_spacing = H / num_rows
 
-    lens_height = row_spacing * 0.75  # recompute with adjusted spacing
+    default_lens_h = params.cut_spacing * 0.75
+    lens_height = min(
+        params.cut_height if params.cut_height is not None else default_lens_h,
+        row_spacing * 0.95,
+    )
 
     # Center the grid so both edge clips are symmetric.
     offset = (W % period) / 2

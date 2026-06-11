@@ -20,9 +20,11 @@ def main():
         material_height=200,        # mm
         material_thickness=3,       # mm plywood
         kerf_width=0.2,            # mm (typical CO2 laser on wood)
-        cut_spacing=9,             # mm horizontal spacing between columns
-        cut_length=12,             # mm oval width
+        cut_spacing=9,             # mm tab between ovals (X)
+        cut_length=30,             # mm oval width → ~4 per row across 150mm
+        cut_height=3.5,            # mm oval height (fixed, independent of row pitch)
         cut_offset=10,             # mm from edges
+        row_spacing=4,             # mm row pitch → ~50 rows
         pattern_type='oval',       # Elongated oval pattern
         material_name="3mm Plywood",
         notes="Elongated vertical ovals for smooth horizontal bending",

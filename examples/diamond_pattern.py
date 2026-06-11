@@ -20,9 +20,11 @@ def main():
         material_height=200,        # mm
         material_thickness=3,       # mm plywood
         kerf_width=0.2,            # mm (typical CO2 laser on wood)
-        cut_spacing=9,             # mm horizontal spacing between columns
-        cut_length=12,             # mm diamond width
+        cut_spacing=9,             # mm tab between diamonds (X)
+        cut_length=30,             # mm diamond width → ~4 per row across 150mm
+        cut_height=3.5,            # mm diamond height (fixed, independent of row pitch)
         cut_offset=10,             # mm from edges
+        row_spacing=4,             # mm row pitch → ~50 rows, 0.5mm gap between diamonds
         pattern_type='diamond',    # Elongated diamond pattern
         material_name="3mm Plywood",
         notes="Elongated vertical diamonds for horizontal bending",

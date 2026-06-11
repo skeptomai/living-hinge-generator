@@ -10,7 +10,6 @@ from .geometry import (
     calculate_max_bend_angle,
     estimate_number_of_cuts,
     estimate_shape_count,
-    calculate_num_rows,
 )
 
 
@@ -56,6 +55,7 @@ class KerfParameters:
     # Optional pattern configuration
     num_vertical_rows: Optional[int] = None  # None = auto-calculate based on height
     row_spacing: Optional[float] = None  # None = use cut_spacing; set smaller for denser rows
+    cut_height: Optional[float] = None  # diamond/oval vertical size; None = cut_spacing * 0.90
 
     # Optional metadata
     material_name: Optional[str] = None
@@ -126,6 +126,11 @@ class KerfParameters:
         return self.row_spacing if self.row_spacing is not None else self.cut_spacing
 
     @property
+    def effective_cut_height(self) -> float:
+        """Vertical size of each diamond/oval shape. Defaults to cut_spacing * 0.90."""
+        return self.cut_height if self.cut_height is not None else self.cut_spacing * 0.90
+
+    @property
     def bend_radius(self) -> float:
         """Calculate the approximate bend radius for this pattern."""
         return calculate_bend_radius(
@@ -146,21 +151,10 @@ class KerfParameters:
 
     @property
     def effective_num_rows(self) -> int:
-        """
-        Get the effective number of vertical rows for diamond/oval patterns.
-
-        Returns:
-            Number of rows (1 for straight cuts, auto-calculated or manual for diamond/oval)
-        """
+        """Number of vertical rows for diamond/oval patterns, derived from effective_row_spacing."""
         if self.pattern_type == "straight":
-            return 1  # Straight cuts don't use row stacking
-
-        if self.num_vertical_rows is not None:
-            # User specified explicit number of rows
-            return max(1, self.num_vertical_rows)
-
-        # Auto-calculate based on material height
-        return calculate_num_rows(self.material_height)
+            return 1
+        return max(1, round(self.material_height / self.effective_row_spacing))
 
     @property
     def num_cuts(self) -> int:
@@ -214,7 +208,8 @@ class KerfParameters:
 
         lines.extend([
             f"Kerf Width: {self.kerf_width} mm",
-            f"Cut Spacing: {self.cut_spacing} mm",
+            f"Cut Spacing (X): {self.cut_spacing} mm",
+            f"Row Spacing (Y): {self.effective_row_spacing} mm",
             f"Cut Length: {self.cut_length} mm",
             f"Cut Offset: {self.cut_offset} mm",
             f"Pattern Type: {self.pattern_type}",
@@ -232,9 +227,7 @@ class KerfParameters:
 
         # Show number of rows for diamond/oval patterns
         if self.pattern_type in ("diamond", "oval"):
-            rows = self.effective_num_rows
-            auto_calc = " (auto)" if self.num_vertical_rows is None else ""
-            lines.append(f"  Vertical Rows: {rows}{auto_calc}")
+            lines.append(f"  Vertical Rows: {self.effective_num_rows}")
 
         lines.extend([
             f"  Bend Radius: {self.bend_radius:.2f} mm",
