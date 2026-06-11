@@ -16,8 +16,8 @@ def main():
     # Define pattern parameters
     # Elongated oval pattern on 150x200mm material
     params = KerfParameters(
-        material_width=150,         # mm
-        material_height=200,        # mm
+        material_width=100,         # mm
+        material_height=150,        # mm
         material_thickness=3,       # mm plywood
         kerf_width=0.2,            # mm (typical CO2 laser on wood)
         cut_spacing=9,             # mm tab between ovals (X)
