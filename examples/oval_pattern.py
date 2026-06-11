@@ -24,7 +24,7 @@ def main():
         cut_length=30,             # mm oval width → ~4 per row across 150mm
         cut_height=3.5,            # mm oval height (fixed, independent of row pitch)
         cut_offset=10,             # mm from edges
-        row_spacing=4,             # mm row pitch → ~50 rows
+        row_spacing=4.4,           # mm row pitch → ~45 rows, +10% more material between rows
         pattern_type='oval',       # Elongated oval pattern
         material_name="3mm Plywood",
         notes="Elongated vertical ovals for smooth horizontal bending",
