@@ -14,7 +14,7 @@ from .geometry import (
 
 
 PatternDirection = Literal["horizontal", "vertical"]
-PatternType = Literal["straight", "diamond", "oval"]
+PatternType = Literal["straight", "diamond", "oval", "rounded_rect"]
 
 
 @dataclass
@@ -89,9 +89,9 @@ class KerfParameters:
         )
 
         # Check pattern type
-        if self.pattern_type not in ("straight", "diamond", "oval"):
+        if self.pattern_type not in ("straight", "diamond", "oval", "rounded_rect"):
             warnings.append(
-                f"Pattern type must be 'straight', 'diamond', or 'oval', got '{self.pattern_type}'"
+                f"Pattern type must be 'straight', 'diamond', 'oval', or 'rounded_rect', got '{self.pattern_type}'"
             )
             is_valid = False
 
@@ -222,11 +222,11 @@ class KerfParameters:
         lines.extend([
             "",
             "Calculated Properties:",
-            f"  Estimated {'Shapes' if self.pattern_type in ('diamond', 'oval') else 'Cuts'}: {self.num_cuts}",
+            f"  Estimated {'Shapes' if self.pattern_type in ('diamond', 'oval', 'rounded_rect') else 'Cuts'}: {self.num_cuts}",
         ])
 
-        # Show number of rows for diamond/oval patterns
-        if self.pattern_type in ("diamond", "oval"):
+        # Show number of rows for 2D patterns
+        if self.pattern_type in ("diamond", "oval", "rounded_rect"):
             lines.append(f"  Vertical Rows: {self.effective_num_rows}")
 
         lines.extend([

@@ -44,6 +44,8 @@ def generate_living_hinge(params: KerfParameters) -> List[LineSegment]:
         lines = _generate_diamond_pattern(params)
     elif params.pattern_type == "oval":
         lines = _generate_oval_pattern(params)
+    elif params.pattern_type == "rounded_rect":
+        lines = _generate_rounded_rect_pattern(params)
     else:
         raise ValueError(f"Unknown pattern_type: {params.pattern_type}")
 
@@ -416,6 +418,120 @@ def _generate_oval_pattern(params: KerfParameters) -> List[LineSegment]:
         row += 1
 
     return lines
+
+
+def _generate_rounded_rect_pattern(params: KerfParameters) -> List[LineSegment]:
+    """
+    Generate a rounded rectangle (stadium) pattern.
+
+    Each shape is a rectangle with fully semicircular ends (r = cut_height/2).
+    This gives uniform interstitial spacing between shapes, unlike ovals whose
+    pointed tips create very narrow crossing gaps.
+    """
+    lines: List[LineSegment] = []
+
+    cut_len = params.cut_length
+    tab_width = params.cut_spacing
+    row_spacing = params.effective_row_spacing
+    period = cut_len + tab_width
+    W = params.material_width
+    H = params.material_height
+
+    if period <= 0 or W <= 0 or H <= 0:
+        return lines
+
+    num_rows = max(1, round(H / row_spacing))
+    row_spacing = H / num_rows
+
+    height = min(params.effective_cut_height, row_spacing * 0.95)
+    r = height / 2  # stadium: corner radius = half height
+
+    offset = (W % period) / 2
+    y_margin = height / 4
+
+    row = 0
+    y = 0.0
+    while y <= H + 1e-9:
+        if y < y_margin or y > H - y_margin:
+            y += row_spacing
+            row += 1
+            continue
+
+        anchor = offset if row % 2 == 0 else offset + period / 2
+        n_back = math.ceil((anchor + cut_len / 2) / period)
+        cx = anchor - n_back * period
+
+        while True:
+            x_left = cx - cut_len / 2
+            x_right = cx + cut_len / 2
+
+            if x_left >= W + 1e-9:
+                break
+            if x_right <= -1e-9:
+                cx += period
+                continue
+
+            visible = min(x_right, W) - max(x_left, 0)
+            if visible >= cut_len * 0.25:
+                lines.extend(_create_rounded_rect_cut(cx, y, cut_len, height, r))
+
+            cx += period
+
+        y += row_spacing
+        row += 1
+
+    return lines
+
+
+def _create_rounded_rect_cut(cx: float, cy: float, width: float, height: float, r: float, n_segs: int = 8) -> List[LineSegment]:
+    """
+    Stadium-shaped cut (rounded rectangle with semicircular ends) centered at (cx, cy).
+
+    r should be <= height/2. With r = height/2 the left and right ends are full semicircles
+    with no flat left/right sides.
+    """
+    r = min(r, height / 2, width / 2)
+    flat_w = width - 2 * r   # length of top/bottom flat edges
+    flat_h = height - 2 * r  # length of left/right flat edges (0 when r = height/2)
+
+    segs: List[LineSegment] = []
+
+    def arc(acx, acy, a_start, a_end):
+        for i in range(n_segs):
+            a1 = a_start + (a_end - a_start) * i / n_segs
+            a2 = a_start + (a_end - a_start) * (i + 1) / n_segs
+            segs.append(LineSegment(acx + r * math.cos(a1), acy + r * math.sin(a1),
+                                    acx + r * math.cos(a2), acy + r * math.sin(a2)))
+
+    # Top flat edge
+    if flat_w > 0:
+        segs.append(LineSegment(cx - flat_w / 2, cy + height / 2, cx + flat_w / 2, cy + height / 2))
+
+    # Top-right arc: π/2 → 0
+    arc(cx + flat_w / 2, cy + flat_h / 2, math.pi / 2, 0)
+
+    # Right flat edge
+    if flat_h > 0:
+        segs.append(LineSegment(cx + width / 2, cy + flat_h / 2, cx + width / 2, cy - flat_h / 2))
+
+    # Bottom-right arc: 0 → -π/2
+    arc(cx + flat_w / 2, cy - flat_h / 2, 0, -math.pi / 2)
+
+    # Bottom flat edge
+    if flat_w > 0:
+        segs.append(LineSegment(cx + flat_w / 2, cy - height / 2, cx - flat_w / 2, cy - height / 2))
+
+    # Bottom-left arc: -π/2 → -π
+    arc(cx - flat_w / 2, cy - flat_h / 2, -math.pi / 2, -math.pi)
+
+    # Left flat edge
+    if flat_h > 0:
+        segs.append(LineSegment(cx - width / 2, cy - flat_h / 2, cx - width / 2, cy + flat_h / 2))
+
+    # Top-left arc: -π → -3π/2 (= π/2)
+    arc(cx - flat_w / 2, cy + flat_h / 2, -math.pi, -3 * math.pi / 2)
+
+    return segs
 
 
 def _create_lens_cut(x_start: float, x_end: float, y: float, height: float, num_segments: int = 12) -> List[LineSegment]:
